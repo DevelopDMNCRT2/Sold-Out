@@ -1,0 +1,101 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;700;900&display=swap');
+
+:root {
+  --color-black: #050505;
+  --color-dark-gray: #121212;
+  --color-gray: #2a2a2a;
+  --color-light-gray: #a0a0a0;
+  --color-white: #ffffff;
+  --color-accent: #8b0000; /* Dark Red */
+  --color-accent-hover: #b30000;
+  
+  --font-primary: 'Inter', sans-serif;
+  --font-display: 'Outfit', sans-serif;
+}
+
+[data-theme="light"] {
+  --color-black: #f8f9fa;
+  --color-dark-gray: #ffffff;
+  --color-gray: #e9ecef;
+  --color-light-gray: #495057;
+  --color-white: #212529;
+  --color-accent: #c92a2a; /* Slightly brighter red for light mode */
+  --color-accent-hover: #e03131;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-primary);
+  background-color: var(--color-black);
+  color: var(--color-light-gray);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  color: var(--color-white);
+  font-weight: 800;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.3s ease;
+}
+
+button, .btn {
+  font-family: var(--font-primary);
+  cursor: pointer;
+  border: none;
+  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+.btn-primary {
+  background-color: var(--color-accent);
+  color: var(--color-white);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(139, 0, 0, 0.5);
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: var(--color-white);
+  border: 1px solid var(--color-white);
+}
+
+.btn-outline:hover {
+  background-color: var(--color-white);
+  color: var(--color-black);
+}
+
+/* Utilities */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.section {
+  padding: 6rem 0;
+}
+
+.text-center {
+  text-align: center;
+}
