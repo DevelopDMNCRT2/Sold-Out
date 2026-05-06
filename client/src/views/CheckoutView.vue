@@ -164,90 +164,137 @@ const processPayment = async () => {
     const attendeeName = attendees.value[i].trim()
     const ticketId = `TKT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
     
+    // Usaremos orientación landscape para un boleto más realista, o portrait A4 con un boleto en medio.
+    // Usaremos A4 portrait (210x297) para que sea fácil de imprimir en casa.
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4'
     })
 
-    // Fondo blanco del boleto
+    // Fondo blanco de la hoja
     doc.setFillColor(255, 255, 255)
     doc.rect(0, 0, 210, 297, 'F')
     
-    // Póster manteniendo el aspect ratio
-    let startY = 130
-    try {
-      const imgRatio = posterImg.width / posterImg.height
-      let finalWidth = 180
-      let finalHeight = finalWidth / imgRatio
-      
-      // Limitar altura a 120mm
-      if (finalHeight > 120) {
-        finalHeight = 120
-        finalWidth = finalHeight * imgRatio
-      }
-      
-      const xOffset = (210 - finalWidth) / 2
-      doc.addImage(posterImg, 'PNG', xOffset, 15, finalWidth, finalHeight)
-      startY = 15 + finalHeight + 20
-    } catch(e) {}
-
-    // Título Principal
+    // Header de la Hoja
     doc.setTextColor(0, 0, 0)
-    doc.setFontSize(28)
+    doc.setFontSize(24)
     doc.setFont('helvetica', 'bold')
-    doc.text('NEON NIGHTS FESTIVAL', 105, startY, { align: 'center' })
-
-    // Detalles del Evento
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(80, 80, 80)
-    doc.text(`Fecha: 15 Oct 2026`, 105, startY + 10, { align: 'center' })
-    doc.text(`Lugar: Estadio Nacional`, 105, startY + 18, { align: 'center' })
-
-    // Caja de datos del boleto (gris claro)
-    doc.setFillColor(245, 245, 245)
-    doc.setDrawColor(200, 200, 200)
-    doc.rect(15, startY + 30, 180, 50, 'FD')
-    
-    // Decoración final (Slash rojo en la caja)
-    doc.setFillColor(139, 0, 0) // var(--color-accent)
-    doc.rect(15, startY + 30, 3, 50, 'F')
-    
-    // Tipo de boleto
-    doc.setFontSize(12)
-    doc.setTextColor(120, 120, 120)
-    doc.text('TIPO DE ENTRADA', 25, startY + 42)
-    doc.setTextColor(0, 0, 0)
-    doc.setFontSize(18)
-    doc.setFont('helvetica', 'bold')
-    doc.text(ticketType.value.toUpperCase(), 25, startY + 52)
-
-    // Nombre del Asistente
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(120, 120, 120)
-    doc.text('ASISTENTE', 25, startY + 66)
-    doc.setTextColor(0, 0, 0)
-    doc.setFontSize(16)
-    doc.setFont('helvetica', 'bold')
-    doc.text(attendeeName.toUpperCase(), 25, startY + 74)
-
-    // Generar código QR único
-    const qrDataUrl = await QRCode.toDataURL(ticketId, {
-      color: { dark: '#000000', light: '#ffffff' },
-      width: 150,
-      margin: 1
-    })
-    
-    // Insertar QR
-    doc.addImage(qrDataUrl, 'PNG', 140, startY + 35, 40, 40)
-
-    // ID de Boleto
+    doc.text('TUS BOLETOS', 105, 30, { align: 'center' })
     doc.setFontSize(10)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(100, 100, 100)
-    doc.text(`ID: ${ticketId}`, 160, startY + 85, { align: 'center' })
+    doc.text('Imprime este documento o muéstralo desde tu dispositivo móvil.', 105, 37, { align: 'center' })
+
+    // Dimensiones y coordenadas del BOLETO (Ticket)
+    const tX = 15
+    const tY = 50
+    const tW = 180
+    const tH = 80
+    const stubW = 55 // Ancho del talón (donde va el QR)
+    const mainW = tW - stubW
+
+    // Sombra suave o contorno del boleto
+    doc.setDrawColor(200, 200, 200)
+    doc.setLineWidth(0.5)
+    doc.setFillColor(252, 252, 252)
+    doc.roundedRect(tX, tY, tW, tH, 3, 3, 'FD')
+
+    // Línea punteada de corte (entre ticket principal y talón)
+    doc.setDrawColor(180, 180, 180)
+    doc.setLineDash([2, 2], 0)
+    doc.line(tX + mainW, tY, tX + mainW, tY + tH)
+    doc.setLineDash([]) // Reset dash
+
+    // --- SECCIÓN PRINCIPAL DEL BOLETO (IZQUIERDA) ---
+    // Branding SOLD OUT
+    doc.setFillColor(139, 0, 0) // var(--color-accent)
+    doc.rect(tX, tY, 5, tH, 'F') // Franja lateral izquierda
+    
+    doc.setTextColor(139, 0, 0)
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text('SOLD OUT.', tX + 10, tY + 12)
+
+    // Flyer de evento preservando Aspect Ratio
+    let flyerX = tX + 10
+    let flyerY = tY + 20
+    let flyerMaxWidth = 45
+    let flyerMaxHeight = 50
+    try {
+      const imgRatio = posterImg.width / posterImg.height
+      let finalWidth = flyerMaxWidth
+      let finalHeight = finalWidth / imgRatio
+      if (finalHeight > flyerMaxHeight) {
+         finalHeight = flyerMaxHeight
+         finalWidth = finalHeight * imgRatio
+      }
+      doc.addImage(posterImg, 'PNG', flyerX, flyerY + (flyerMaxHeight - finalHeight)/2, finalWidth, finalHeight)
+      flyerX += finalWidth + 8 // Mover el texto a la derecha del flyer
+    } catch(e) {
+      flyerX += 50 // Si falla, dejamos espacio
+    }
+
+    // Datos del Evento
+    doc.setTextColor(0, 0, 0)
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.text('NEON NIGHTS FESTIVAL', flyerX, tY + 28)
+    
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(80, 80, 80)
+    doc.text(`15 Oct 2026 • 20:00 Hrs`, flyerX, tY + 36)
+    doc.text(`Estadio Nacional`, flyerX, tY + 41)
+
+    // Datos del Cliente y Boleto
+    doc.setFontSize(8)
+    doc.setTextColor(120, 120, 120)
+    doc.text('NOMBRE DEL ASISTENTE', flyerX, tY + 54)
+    doc.setTextColor(0, 0, 0)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text(attendeeName.toUpperCase(), flyerX, tY + 60)
+
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(120, 120, 120)
+    doc.text('TIPO DE BOLETO', flyerX + 60, tY + 54)
+    doc.setTextColor(139, 0, 0)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text(ticketType.value.toUpperCase(), flyerX + 60, tY + 60)
+
+
+    // --- TALÓN DEL BOLETO (DERECHA) ---
+    // Título secundario
+    doc.setTextColor(0, 0, 0)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text('ACCESO', tX + mainW + (stubW/2), tY + 12, { align: 'center' })
+
+    // Código QR
+    const qrDataUrl = await QRCode.toDataURL(ticketId, {
+      color: { dark: '#000000', light: '#ffffff' },
+      width: 120,
+      margin: 0
+    })
+    
+    const qrSize = 35
+    const qrX = tX + mainW + (stubW - qrSize) / 2
+    const qrY = tY + 20
+    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize)
+
+    // Ticket ID
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(80, 80, 80)
+    doc.text(ticketId, tX + mainW + (stubW/2), qrY + qrSize + 6, { align: 'center' })
+
+    // Extra branding
+    doc.setFontSize(7)
+    doc.setTextColor(150, 150, 150)
+    doc.text('SOLD OUT PLATFORM', tX + mainW + (stubW/2), tY + tH - 5, { align: 'center' })
 
     // Guardar el PDF y forzar descarga
     doc.save(`Boleto_${ticketType.value}_${attendeeName.replace(/ /g, '_')}.pdf`)
