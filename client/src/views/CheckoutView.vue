@@ -364,15 +364,17 @@ label {
 .card-visual {
   width: 100%;
   max-width: 380px;
-  height: 220px;
+  aspect-ratio: 1.586 / 1;
   background: linear-gradient(135deg, #2b2b2b 0%, #1a1a1a 100%);
   border-radius: 16px;
-  padding: 2rem;
-  margin-bottom: 2.5rem;
+  padding: 8%;
+  margin: 0 auto 2.5rem auto;
   box-shadow: 0 15px 35px rgba(0,0,0,0.6);
   border: 1px solid rgba(255,255,255,0.1);
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .card-visual::before {
@@ -385,36 +387,39 @@ label {
 }
 
 .card-chip {
-  width: 50px;
-  height: 40px;
+  width: clamp(35px, 12vw, 50px);
+  height: clamp(28px, 9vw, 40px);
   background: linear-gradient(135deg, #d4af37 0%, #aa8c2c 100%);
   border-radius: 6px;
-  margin-bottom: 2rem;
+  margin-top: 5%;
+  margin-bottom: auto;
 }
 
 .card-logo {
   position: absolute;
-  top: 2rem;
-  right: 2rem;
+  top: 8%;
+  right: 8%;
   font-style: italic;
   font-weight: 900;
-  font-size: 1.5rem;
+  font-size: clamp(1.2rem, 5vw, 1.5rem);
   color: rgba(255,255,255,0.8);
 }
 
 .card-number-display {
   font-family: monospace;
-  font-size: 1.4rem;
-  letter-spacing: 2px;
-  margin-bottom: 1.5rem;
+  font-size: clamp(1.1rem, 6vw, 1.5rem);
+  letter-spacing: clamp(1px, 0.5vw, 2px);
+  margin-bottom: 5%;
   color: var(--color-white);
+  line-height: 1;
 }
 
 .card-name-display {
   text-transform: uppercase;
-  font-size: 0.9rem;
+  font-size: clamp(0.75rem, 3.5vw, 0.9rem);
   color: var(--color-light-gray);
   letter-spacing: 1px;
+  line-height: 1;
 }
 
 .mt-2 { margin-top: 2rem; }
