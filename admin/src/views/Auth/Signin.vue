@@ -254,8 +254,8 @@ const handleSubmit = async () => {
     localStorage.setItem('adminData', JSON.stringify(data.user))
     
     router.push('/')
-  } catch (error) {
-    errorMessage.value = error.message
+  } catch (error: any) {
+    errorMessage.value = error.message || 'Ocurrió un error inesperado'
   } finally {
     isLoading.value = false
   }
