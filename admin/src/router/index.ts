@@ -15,6 +15,14 @@ const router = createRouter({
       },
     },
     {
+      path: '/clientes',
+      name: 'Clientes',
+      component: () => import('../views/CustomersList.vue'),
+      meta: {
+        title: 'Clientes',
+      },
+    },
+    {
       path: '/eventos',
       name: 'Eventos',
       component: () => import('../views/EventsList.vue'),

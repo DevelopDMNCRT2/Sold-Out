@@ -71,10 +71,10 @@
               <label for="subject">Asunto</label>
               <select id="subject" v-model="form.subject" class="form-control" required>
                 <option value="" disabled selected>Selecciona un tema...</option>
-                <option value="Soporte Técnico">Problemas con mi boleto</option>
-                <option value="Ventas">Quiero vender boletos con ustedes</option>
-                <option value="Facturación">Dudas de facturación</option>
-                <option value="Otro">Otro asunto</option>
+                <option value="Problemas con mi boleto">Problemas con mi boleto</option>
+                <option value="Quiero vender boletos con ustedes">Quiero vender boletos con ustedes</option>
+                <option value="Dudas de facturación">Dudas de facturación</option>
+                <option value="Otro asunto">Otro asunto</option>
               </select>
             </div>
 
@@ -83,9 +83,15 @@
               <textarea id="message" v-model="form.message" class="form-control" rows="5" placeholder="¿En qué te podemos ayudar?" required></textarea>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-block submit-btn">
-              Enviar Mensaje
+            <button type="submit" class="btn btn-primary btn-block submit-btn" :disabled="isLoading">
+              {{ isLoading ? 'Enviando...' : 'Enviar Mensaje' }}
             </button>
+            <div v-if="successMessage" class="success-message mt-3">
+              {{ successMessage }}
+            </div>
+            <div v-if="errorMessage" class="error-message mt-3">
+              {{ errorMessage }}
+            </div>
           </form>
         </div>
 
@@ -104,16 +110,43 @@ const form = ref({
   message: ''
 })
 
-const submitForm = () => {
-  // Simulando el envío
-  alert(`¡Gracias por contactarnos, ${form.value.name}! Hemos recibido tu mensaje y te responderemos al correo ${form.value.email} en menos de 24 horas.`)
-  
-  // Limpiar el formulario
-  form.value = {
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
+const isLoading = ref(false)
+const successMessage = ref('')
+const errorMessage = ref('')
+
+const submitForm = async () => {
+  isLoading.value = true
+  successMessage.value = ''
+  errorMessage.value = ''
+
+  try {
+    const response = await fetch('http://localhost:3001/api/contact', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(form.value),
+    })
+
+    if (!response.ok) {
+      throw new Error('Error al enviar el mensaje')
+    }
+
+    const data = await response.json()
+    successMessage.value = `¡Gracias por contactarnos, ${form.value.name}! Hemos recibido tu mensaje y te responderemos al correo ${form.value.email} pronto.`
+    
+    // Limpiar el formulario
+    form.value = {
+      name: '',
+      email: '',
+      subject: '',
+      message: ''
+    }
+  } catch (error) {
+    console.error('Error enviando contacto:', error)
+    errorMessage.value = 'Hubo un problema al enviar tu mensaje. Por favor intenta de nuevo.'
+  } finally {
+    isLoading.value = false
   }
 }
 </script>
@@ -287,5 +320,30 @@ textarea.form-control {
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-top: 1rem;
+}
+button:disabled {
+  background-color: var(--color-gray);
+  color: var(--color-light-gray);
+  border-color: var(--color-gray);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.success-message {
+  padding: 1rem;
+  background-color: rgba(34, 197, 94, 0.1);
+  color: #4ade80;
+  border: 1px solid #22c55e;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.error-message {
+  padding: 1rem;
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid #ef4444;
+  border-radius: 4px;
+  text-align: center;
 }
 </style>

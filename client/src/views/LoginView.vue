@@ -31,11 +31,11 @@
           <form v-if="mode === 'login'" @submit.prevent="handleLogin" class="auth-form">
             <div class="form-group">
               <label for="login-email">Correo Electrónico</label>
-              <input id="login-email" type="email" class="form-control" placeholder="tu@correo.com" required />
+              <input id="login-email" v-model="loginData.email" type="email" class="form-control" placeholder="tu@correo.com" required />
             </div>
             <div class="form-group">
               <label for="login-password">Contraseña</label>
-              <input id="login-password" type="password" class="form-control" placeholder="••••••••" required />
+              <input id="login-password" v-model="loginData.password" type="password" class="form-control" placeholder="••••••••" required />
             </div>
             
             <div class="form-actions">
@@ -45,25 +45,33 @@
               <a href="#" class="forgot-password">¿Olvidaste tu contraseña?</a>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+            <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
+
+            <button type="submit" class="btn btn-primary btn-block" :disabled="isLoading">
+              {{ isLoading ? 'Cargando...' : 'Entrar' }}
+            </button>
           </form>
 
           <!-- Register Form -->
           <form v-else @submit.prevent="handleRegister" class="auth-form">
             <div class="form-group">
               <label for="reg-name">Nombre Completo</label>
-              <input id="reg-name" type="text" class="form-control" placeholder="Ej. Juan Pérez" required />
+              <input id="reg-name" v-model="registerData.name" type="text" class="form-control" placeholder="Ej. Juan Pérez" required />
             </div>
             <div class="form-group">
               <label for="reg-email">Correo Electrónico</label>
-              <input id="reg-email" type="email" class="form-control" placeholder="tu@correo.com" required />
+              <input id="reg-email" v-model="registerData.email" type="email" class="form-control" placeholder="tu@correo.com" required />
             </div>
             <div class="form-group">
               <label for="reg-password">Contraseña</label>
-              <input id="reg-password" type="password" class="form-control" placeholder="Mínimo 8 caracteres" minlength="8" required />
+              <input id="reg-password" v-model="registerData.password" type="password" class="form-control" placeholder="Mínimo 8 caracteres" minlength="8" required />
             </div>
 
-            <button type="submit" class="btn btn-primary btn-block">Registrarse</button>
+            <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
+
+            <button type="submit" class="btn btn-primary btn-block" :disabled="isLoading">
+              {{ isLoading ? 'Cargando...' : 'Registrarse' }}
+            </button>
             <p class="terms-text text-center mt-3">Al registrarte, aceptas nuestros Términos y Condiciones y Política de Privacidad.</p>
           </form>
 
@@ -75,20 +83,71 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const mode = ref('login') // 'login' | 'register'
+const isLoading = ref(false)
+const errorMessage = ref('')
 
-const handleLogin = () => {
-  alert('Simulación: Iniciando sesión...')
-  router.push('/')
+const loginData = reactive({
+  email: '',
+  password: ''
+})
+
+const registerData = reactive({
+  name: '',
+  email: '',
+  password: ''
+})
+
+const handleLogin = async () => {
+  isLoading.value = true
+  errorMessage.value = ''
+  try {
+    const res = await fetch('http://localhost:3001/api/customers/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginData)
+    })
+    
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Error al iniciar sesión')
+    
+    localStorage.setItem('customerToken', data.token)
+    localStorage.setItem('customerData', JSON.stringify(data.customer))
+    
+    router.push('/')
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    isLoading.value = false
+  }
 }
 
-const handleRegister = () => {
-  alert('Simulación: Cuenta creada exitosamente. Redirigiendo...')
-  router.push('/')
+const handleRegister = async () => {
+  isLoading.value = true
+  errorMessage.value = ''
+  try {
+    const res = await fetch('http://localhost:3001/api/customers/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(registerData)
+    })
+    
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Error al registrarse')
+    
+    localStorage.setItem('customerToken', data.token)
+    localStorage.setItem('customerData', JSON.stringify(data.customer))
+    
+    router.push('/')
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
 
@@ -163,6 +222,13 @@ const handleRegister = () => {
   font-size: 1.8rem;
   margin-bottom: 0.3rem;
   color: var(--color-white);
+}
+
+.error-message {
+  color: var(--color-accent);
+  font-size: 0.9rem;
+  text-align: center;
+  margin-top: 1rem;
 }
 
 .text-light {

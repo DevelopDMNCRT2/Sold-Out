@@ -11,7 +11,22 @@ router.post('/', async (req, res) => {
     const { eventId, buyerName, buyerEmail, buyerPhone, totalAmount, tickets } = req.body;
     // tickets = [{ ticketTierId: '123', qty: 2 }]
 
-    // 1. Crear la Orden
+    // 1. Buscar o crear el Cliente (Customer)
+    let customer = await prisma.customer.findUnique({ where: { email: buyerEmail } });
+    if (!customer) {
+      let customerId;
+      let exists = true;
+      while (exists) {
+        customerId = Math.floor(10000 + Math.random() * 90000).toString(); // 5 digits
+        const count = await prisma.customer.count({ where: { id: customerId } });
+        if (count === 0) exists = false;
+      }
+      customer = await prisma.customer.create({
+        data: { id: customerId, name: buyerName, email: buyerEmail, phone: buyerPhone }
+      });
+    }
+
+    // 2. Crear la Orden
     const order = await prisma.order.create({
       data: {
         eventId,
@@ -19,7 +34,8 @@ router.post('/', async (req, res) => {
         buyerEmail,
         buyerPhone,
         totalAmount,
-        status: 'Pagado' // Asumiendo que el pago fue exitoso antes de llamar aquí
+        status: 'Pagado', // Asumiendo que el pago fue exitoso antes de llamar aquí
+        customerId: customer.id
       },
       include: {
         event: true

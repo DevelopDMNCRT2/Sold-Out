@@ -4,11 +4,11 @@
       class="flex items-center text-gray-700 dark:text-gray-400"
       @click.prevent="toggleDropdown"
     >
-      <span class="mr-3 overflow-hidden rounded-full h-11 w-11">
-        <img src="/images/user/owner.jpg" alt="User" />
+      <span class="mr-3 overflow-hidden rounded-full h-11 w-11 flex items-center justify-center bg-brand-500 text-white text-lg font-semibold">
+        {{ user?.name ? user.name.charAt(0).toUpperCase() : 'A' }}
       </span>
 
-      <span class="block mr-1 font-medium text-theme-sm">Musharof </span>
+      <span class="block mr-1 font-medium text-theme-sm">{{ user?.name || 'Admin' }} </span>
 
       <ChevronDownIcon :class="{ 'rotate-180': dropdownOpen }" />
     </button>
@@ -20,28 +20,13 @@
     >
       <div>
         <span class="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-          Musharof Chowdhury
+          {{ user?.name || 'Administrator' }}
         </span>
         <span class="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
-          randomuser@pimjo.com
+          {{ user?.email || 'admin@soldout.com' }}
         </span>
       </div>
 
-      <ul class="flex flex-col gap-1 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800">
-        <li v-for="item in menuItems" :key="item.href">
-          <router-link
-            :to="item.href"
-            class="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-          >
-            <!-- SVG icon would go here -->
-            <component
-              :is="item.icon"
-              class="text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300"
-            />
-            {{ item.text }}
-          </router-link>
-        </li>
-      </ul>
       <router-link
         to="/signin"
         @click="signOut"
@@ -50,7 +35,7 @@
         <LogoutIcon
           class="text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300"
         />
-        Sign out
+        Cerrar sesión
       </router-link>
     </div>
     <!-- Dropdown End -->
@@ -59,17 +44,13 @@
 
 <script setup>
 import { UserCircleIcon, ChevronDownIcon, LogoutIcon, SettingsIcon, InfoCircleIcon } from '@/icons'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { ref, onMounted, onUnmounted } from 'vue'
 
 const dropdownOpen = ref(false)
 const dropdownRef = ref(null)
-
-const menuItems = [
-  { href: '/profile', icon: UserCircleIcon, text: 'Edit profile' },
-  { href: '/chat', icon: SettingsIcon, text: 'Account settings' },
-  { href: '/profile', icon: InfoCircleIcon, text: 'Support' },
-]
+const user = ref(null)
+const router = useRouter()
 
 const toggleDropdown = () => {
   dropdownOpen.value = !dropdownOpen.value
@@ -80,9 +61,11 @@ const closeDropdown = () => {
 }
 
 const signOut = () => {
-  // Implement sign out logic here
-  console.log('Signing out...')
+  localStorage.removeItem('adminToken')
+  localStorage.removeItem('adminData')
+  user.value = null
   closeDropdown()
+  router.push('/signin')
 }
 
 const handleClickOutside = (event) => {
@@ -93,6 +76,13 @@ const handleClickOutside = (event) => {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  
+  const savedUser = localStorage.getItem('adminData')
+  if (savedUser) {
+    try {
+      user.value = JSON.parse(savedUser)
+    } catch(e) {}
+  }
 })
 
 onUnmounted(() => {

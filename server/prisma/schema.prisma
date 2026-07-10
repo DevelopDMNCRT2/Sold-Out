@@ -67,6 +67,8 @@ model Order {
   
   purchaseDate  DateTime @default(now())
 
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id])
   event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   tickets Ticket[]
 }
@@ -85,11 +87,23 @@ model Ticket {
 }
 
 model User {
-  id        String   @id @default(uuid())
+  id        String   @id
   name      String
   email     String   @unique
   password  String   // Hashed password
   role      String   @default("Admin") // Admin, Staff
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id        String   @id
+  name      String
+  email     String   @unique
+  password  String?  // Opcional para soportar compras sin registro previo
+  phone     String?
+  orders    Order[]
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

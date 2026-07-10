@@ -6,6 +6,8 @@ import eventRoutes from './routes/events.js';
 import uploadRoutes from './routes/upload.js';
 import orderRoutes from './routes/orders.js';
 import usersRoutes from './routes/users.js';
+import customersRoutes from './routes/customers.js';
+import contactRoutes from './routes/contact.js';
 
 dotenv.config();
 
@@ -19,6 +21,8 @@ app.use('/api/events', eventRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/customers', customersRoutes);
+app.use('/api/contact', contactRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Sold-Out API is running' });

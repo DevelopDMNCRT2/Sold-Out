@@ -4,9 +4,9 @@
   >
     <div class="flex flex-col gap-5 mb-6 sm:flex-row sm:justify-between">
       <div class="w-full">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Statistics</h3>
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Ingresos por mes</h3>
         <p class="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
-          Target you’ve set for each month
+          Resumen de ventas y boletos
         </p>
       </div>
 
@@ -36,7 +36,7 @@
             v-model="date"
             :config="flatpickrConfig"
             class="pl-3 sm:pl-9 dark:bg-dark-900 h-10 w-10 sm:w-40 rounded-lg border border-gray-200 bg-white text-transparent sm:text-theme-sm sm:text-gray-800 shadow-theme-xs placeholder:text-transparent sm:placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-white/[0.03] dark:text-transparent sm:dark:text-gray-400 dark:placeholder:text-transparent sm:dark:placeholder:text-gray-400 dark:focus:border-brand-800"
-            placeholder="Select Date"
+            placeholder="Seleccionar fecha"
           />
           <span
             class="absolute text-gray-500 -translate-y-1/2 pointer-events-none left-1/2 -translate-x-1/2 sm:left-3 sm:translate-x-0 top-1/2 dark:text-gray-400"
@@ -71,11 +71,12 @@
 <script setup>
 import { ref } from 'vue'
 import flatPickr from 'vue-flatpickr-component'
+import { Spanish } from 'flatpickr/dist/l10n/es.js'
 
 const options = [
-  { value: 'optionOne', label: 'Monthly' },
-  { value: 'optionTwo', label: 'Quarterly' },
-  { value: 'optionThree', label: 'Annually' },
+  { value: 'optionOne', label: 'Mensual' },
+  { value: 'optionTwo', label: 'Trimestral' },
+  { value: 'optionThree', label: 'Anual' },
 ]
 
 const selected = ref('optionOne')
@@ -83,18 +84,19 @@ const date = ref('')
 
 const flatpickrConfig = {
   mode: 'range',
-  dateFormat: 'M j',
+  dateFormat: 'j M',
   defaultDate: [new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), new Date()],
+  locale: Spanish,
 }
 import VueApexCharts from 'vue3-apexcharts'
 
 const series = ref([
   {
-    name: 'Sales',
+    name: 'Boletos',
     data: [180, 190, 170, 160, 175, 165, 170, 205, 230, 210, 240, 235],
   },
   {
-    name: 'Revenue',
+    name: 'Ingresos',
     data: [40, 30, 50, 40, 55, 40, 70, 100, 110, 120, 150, 140],
   },
 ])
