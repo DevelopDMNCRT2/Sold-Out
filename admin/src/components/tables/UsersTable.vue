@@ -104,11 +104,11 @@
         <div v-if="selectedUser" class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre</label>
-            <input v-model="selectedUser.name" type="text" class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-brand-400 dark:focus:ring-brand-400" />
+            <input v-model="selectedUser.name" type="text" placeholder="Ej. Juan Pérez" class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-brand-400 dark:focus:ring-brand-400" />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Correo</label>
-            <input v-model="selectedUser.email" type="email" class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-brand-400 dark:focus:ring-brand-400" />
+            <input v-model="selectedUser.email" type="email" placeholder="juan@ejemplo.com" class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-brand-400 dark:focus:ring-brand-400" />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rol</label>
@@ -144,11 +144,11 @@
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre</label>
-            <input v-model="newUser.name" type="text" class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-brand-400 dark:focus:ring-brand-400" />
+            <input v-model="newUser.name" type="text" placeholder="Ej. Juan Pérez" class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-brand-400 dark:focus:ring-brand-400" />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Correo</label>
-            <input v-model="newUser.email" type="email" class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-brand-400 dark:focus:ring-brand-400" />
+            <input v-model="newUser.email" type="email" placeholder="juan@ejemplo.com" class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-brand-400 dark:focus:ring-brand-400" />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rol</label>
@@ -160,11 +160,11 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña</label>
-            <input v-model="newUser.password" type="password" class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-brand-400 dark:focus:ring-brand-400" />
+            <input v-model="newUser.password" type="password" placeholder="Mínimo 8 caracteres" class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-brand-400 dark:focus:ring-brand-400" />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirmar Contraseña</label>
-            <input v-model="newUser.confirmPassword" type="password" class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-brand-400 dark:focus:ring-brand-400" />
+            <input v-model="newUser.confirmPassword" type="password" placeholder="Vuelve a escribir la contraseña" class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-brand-400 dark:focus:ring-brand-400" />
           </div>
           <p v-if="newUserError" class="text-error-500 text-sm mt-1">{{ newUserError }}</p>
         </div>
@@ -182,14 +182,20 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Modal from '@/components/ui/Modal.vue'
+import api from '@/services/api'
 
-const users = ref([
-  { id: '1', name: 'Ana Garcia', email: 'ana@example.com', role: 'Administrador' },
-  { id: '2', name: 'Carlos Lopez', email: 'carlos@example.com', role: 'Usuario' },
-  { id: '3', name: 'María Fernandez', email: 'maria@example.com', role: 'Staff' },
-])
+const users = ref([])
+
+onMounted(async () => {
+  try {
+    const response = await api.get('/users')
+    users.value = response.data
+  } catch (error) {
+    console.error("Error fetching users:", error)
+  }
+})
 
 const isViewModalOpen = ref(false)
 const isEditModalOpen = ref(false)
@@ -205,7 +211,7 @@ const openNewUserModal = () => {
   isNewModalOpen.value = true
 }
 
-const createNewUser = () => {
+const createNewUser = async () => {
   if (!newUser.value.name || !newUser.value.email || !newUser.value.password) {
     newUserError.value = 'Por favor llena todos los campos requeridos.'
     return
@@ -215,16 +221,20 @@ const createNewUser = () => {
     return
   }
   
-  const nextId = (users.value.length > 0 ? Math.max(...users.value.map(u => parseInt(u.id))) + 1 : 1).toString()
-  
-  users.value.push({
-    id: nextId,
-    name: newUser.value.name,
-    email: newUser.value.email,
-    role: newUser.value.role,
-  })
-  
-  isNewModalOpen.value = false
+  try {
+    const response = await api.post('/users', {
+      name: newUser.value.name,
+      email: newUser.value.email,
+      role: newUser.value.role,
+      password: newUser.value.password,
+    })
+    
+    users.value.unshift(response.data) // Add to top of list
+    isNewModalOpen.value = false
+  } catch (error) {
+    newUserError.value = 'Hubo un error al crear el usuario.'
+    console.error(error)
+  }
 }
 
 const viewUser = (user) => {
@@ -237,19 +247,36 @@ const editUser = (user) => {
   isEditModalOpen.value = true
 }
 
-const saveUser = () => {
+const saveUser = async () => {
   if (selectedUser.value) {
-    const index = users.value.findIndex(u => u.id === selectedUser.value.id)
-    if (index !== -1) {
-      users.value[index] = { ...selectedUser.value }
+    try {
+      const response = await api.put(`/users/${selectedUser.value.id}`, {
+        name: selectedUser.value.name,
+        email: selectedUser.value.email,
+        role: selectedUser.value.role,
+      })
+      
+      const index = users.value.findIndex(u => u.id === selectedUser.value.id)
+      if (index !== -1) {
+        users.value[index] = response.data
+      }
+      isEditModalOpen.value = false
+    } catch (error) {
+      console.error('Error updating user:', error)
+      alert('Hubo un error al actualizar el usuario.')
     }
   }
-  isEditModalOpen.value = false
 }
 
-const deleteUser = (user) => {
+const deleteUser = async (user) => {
   if (confirm(`¿Estás seguro de que deseas borrar al usuario ${user.name}?`)) {
-    users.value = users.value.filter(u => u.id !== user.id)
+    try {
+      await api.delete(`/users/${user.id}`)
+      users.value = users.value.filter(u => u.id !== user.id)
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      alert('Hubo un error al borrar el usuario.')
+    }
   }
 }
 

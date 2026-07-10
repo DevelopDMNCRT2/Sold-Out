@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Event {
+  id               String       @id @default(uuid())
+  name             String
+  artist           String
+  category         String
+  shortDescription String?
+  longDescription  String?
+  date             String?
+  startTime        String?
+  doorsOpenTime    String?
+  venue            String?
+  address          String?
+  city             String?
+  state            String?
+  mapUrl           String?
+  status           String       @default("Borrador") // Borrador, Publicado, Cancelado, SoldOut, Finalizado
+  
+  // Settings
+  featured            Boolean @default(false)
+  showCountdown       Boolean @default(true)
+  allowMultiple       Boolean @default(true)
+  limitPerPerson      Boolean @default(false)
+  maxTicketsPerPerson Int     @default(6)
+
+  // Images (Cloudinary URLs)
+  coverImage  String?
+  bannerImage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  ticketTiers TicketTier[]
+  orders      Order[]
+}
+
+model TicketTier {
+  id      String @id @default(uuid())
+  eventId String
+  name    String
+  price   Float
+  stock   Int
+  sold    Int    @default(0)
+
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tickets Ticket[]
+}
+
+model Order {
+  id            String   @id @default(uuid())
+  eventId       String
+  buyerName     String
+  buyerEmail    String
+  buyerPhone    String?
+  totalAmount   Float
+  status        String   @default("Pendiente") // Pendiente, Pagado, Cancelado
+  paymentIntent String?  // Para futura integración con Stripe/MercadoPago
+  
+  purchaseDate  DateTime @default(now())
+
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tickets Ticket[]
+}
+
+model Ticket {
+  id           String  @id @default(uuid())
+  orderId      String
+  ticketTierId String
+  
+  qrCode       String  @unique @default(uuid())
+  status       String  @default("Válido") // Válido, Escaneado
+  scannedAt    DateTime?
+
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ticketTier TicketTier @relation(fields: [ticketTierId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String   // Hashed password
+  role      String   @default("Admin") // Admin, Staff
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

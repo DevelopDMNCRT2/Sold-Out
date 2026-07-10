@@ -23,6 +23,30 @@ const router = createRouter({
       },
     },
     {
+      path: '/eventos/nuevo',
+      name: 'CrearEvento',
+      component: () => import('../views/ManageEvent.vue'),
+      meta: {
+        title: 'Crear Evento',
+      },
+    },
+    {
+      path: '/acceso',
+      name: 'Acceso',
+      component: () => import('../views/ScannerAccess.vue'),
+      meta: {
+        title: 'Acceso y Validación',
+      },
+    },
+    {
+      path: '/eventos/:id',
+      name: 'AdministrarEvento',
+      component: () => import('../views/ManageEvent.vue'),
+      meta: {
+        title: 'Administrar Evento',
+      },
+    },
+    {
       path: '/',
       name: 'Ecommerce',
       component: () => import('../views/Ecommerce.vue'),
