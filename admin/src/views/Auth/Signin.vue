@@ -241,7 +241,8 @@ const handleSubmit = async () => {
   errorMessage.value = ''
   
   try {
-    const res = await fetch('http://localhost:3001/api/users/login', {
+    const apiUrl = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/users/login` : 'http://localhost:3001/api/users/login'
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email.value, password: password.value })

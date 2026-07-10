@@ -106,7 +106,8 @@ const handleLogin = async () => {
   isLoading.value = true
   errorMessage.value = ''
   try {
-    const res = await fetch('http://localhost:3001/api/customers/login', {
+    const apiUrl = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/customers/login` : 'http://localhost:3001/api/customers/login'
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(loginData)
@@ -130,7 +131,8 @@ const handleRegister = async () => {
   isLoading.value = true
   errorMessage.value = ''
   try {
-    const res = await fetch('http://localhost:3001/api/customers/register', {
+    const apiUrl = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/customers/register` : 'http://localhost:3001/api/customers/register'
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(registerData)
