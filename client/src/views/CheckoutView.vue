@@ -102,7 +102,7 @@
               <h4>{{ eventData ? eventData.name : 'Cargando evento...' }}</h4>
               <p>{{ eventData ? eventData.date : '' }} <span v-if="eventData && eventData.venue">| {{ eventData.venue }}</span></p>
             </div>
-
+            <div class="summary-tickets">
               <div v-for="item in cartItems" :key="item.type" class="summary-row">
                 <span>{{ item.qty }}x Boleto {{ item.type }}</span>
                 <span>{{ formatCurrency(getPrice(item.type) * item.qty) }}</span>
