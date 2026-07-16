@@ -316,7 +316,11 @@ const initMPBrick = async () => {
             style: {
               theme: 'dark', // Siempre oscuro (negro/nocturno)
               customVariables: {
-                themeColor: '#b91c1c', // Botón principal y acentos en Rojo
+                baseColor: '#b91c1c', // Botón principal y acentos en Rojo
+                formBackgroundColor: '#121212', // Fondo oscuro coincidente
+                inputBackgroundColor: '#1c1c1c', // Fondo de inputs coincidente
+                textPrimaryColor: '#ffffff', // Texto principal blanco
+                buttonTextColor: '#ffffff' // Texto de botón blanco
               }
             },
           },
