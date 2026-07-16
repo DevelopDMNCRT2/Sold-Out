@@ -662,8 +662,9 @@ onMounted(async () => {
 }
 
 .ticket-tier-price {
-  font-size: 0.85rem;
-  color: var(--color-accent);
+  font-size: 0.95rem;
+  font-weight: 800; /* Super negrita */
+  color: #ef4444; /* Rojo vibrante de alta visibilidad */
   margin-top: 2px;
 }
 
