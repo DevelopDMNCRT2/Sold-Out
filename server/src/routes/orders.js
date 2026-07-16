@@ -2,6 +2,7 @@ import express from 'express';
 import { prisma } from '../config/prisma.js';
 import { sendTicketEmail, sendTicketEmailWithPdf } from '../config/nodemailer.js';
 import QRCode from 'qrcode';
+import crypto from 'crypto';
 
 const router = express.Router();
 
@@ -220,6 +221,207 @@ router.post('/:id/send-email', async (req, res) => {
     res.json({ success: true, message: 'Email con PDF enviado con éxito' });
   } catch (error) {
     console.error("Error en send-email endpoint:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Procesar pago con Mercado Pago (Bricks) y crear orden
+router.post('/mercado-pago', async (req, res) => {
+  try {
+    const { 
+      token, 
+      issuer_id, 
+      payment_method_id, 
+      transaction_amount, 
+      installments, 
+      payer,
+      orderData // contiene eventId, buyerName, buyerEmail, buyerPhone, tickets
+    } = req.body;
+
+    const { eventId, buyerName, buyerEmail, buyerPhone, tickets } = orderData;
+
+    // 1. Validar stock antes de cobrar
+    for (const item of tickets) {
+      let tier = await prisma.ticketTier.findFirst({
+        where: {
+          OR: [
+            { id: item.ticketTierId },
+            { eventId: eventId, name: { equals: item.ticketTierId, mode: 'insensitive' } },
+            { eventId: eventId, name: { equals: item.name, mode: 'insensitive' } }
+          ]
+        }
+      });
+      
+      if (tier) {
+        const remainingStock = tier.stock - tier.sold;
+        if (item.qty > remainingStock) {
+          return res.status(400).json({
+            error: `No hay suficiente stock para la localidad "${tier.name}". Solo quedan ${remainingStock} boletos disponibles.`
+          });
+        }
+      }
+    }
+
+    // 2. Comunicarse con la API de Mercado Pago
+    const idempotencyKey = crypto.randomUUID();
+    const mpUrl = 'https://api.mercadopago.com/v1/payments';
+    
+    console.log("Iniciando cobro en Mercado Pago...");
+    const mpRes = await fetch(mpUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.MERCADO_PAGO_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': idempotencyKey
+      },
+      body: JSON.stringify({
+        token,
+        issuer_id,
+        payment_method_id,
+        transaction_amount: Number(transaction_amount),
+        installments: Number(installments),
+        description: `Compra de boletos en SoldOut`,
+        payer: {
+          email: payer.email,
+          identification: payer.identification
+        }
+      })
+    });
+
+    const payment = await mpRes.json();
+
+    if (!mpRes.ok || payment.status !== 'approved') {
+      console.error("Pago rechazado o fallido en Mercado Pago:", payment);
+      const detail = payment.status_detail || 'El pago no pudo ser procesado.';
+      return res.status(400).json({ 
+        error: `Pago rechazado: ${detail}`,
+        status: payment.status,
+        status_detail: payment.status_detail
+      });
+    }
+
+    console.log(`Pago aprobado ID: ${payment.id}. Creando orden en la base de datos...`);
+
+    // 3. Crear orden localmente tras la aprobación del pago
+    // Buscar o crear cliente
+    let dbCustomer = await prisma.customer.findUnique({ where: { email: buyerEmail } });
+    if (!dbCustomer) {
+      let customerId;
+      let exists = true;
+      while (exists) {
+        customerId = Math.floor(10000 + Math.random() * 90000).toString();
+        const count = await prisma.customer.count({ where: { id: customerId } });
+        if (count === 0) exists = false;
+      }
+      dbCustomer = await prisma.customer.create({
+        data: { id: customerId, name: buyerName, email: buyerEmail, phone: buyerPhone }
+      });
+    }
+
+    // Buscar o crear evento
+    let dbEvent = await prisma.event.findUnique({ where: { id: eventId } });
+    if (!dbEvent) {
+      dbEvent = await prisma.event.create({
+        data: {
+          id: eventId,
+          name: 'Neon Nights Festival',
+          artist: 'Varios Artistas',
+          category: 'Festival',
+          shortDescription: 'El evento electrónico más grande del año',
+          longDescription: 'Prepárate para la experiencia electrónica.',
+          date: '2026-10-15',
+          startTime: '20:00',
+          doorsOpenTime: '19:00',
+          venue: 'Estadio Nacional',
+          address: 'Av. Libertador 1234, Centro',
+          city: 'Ciudad de México',
+          state: 'CDMX',
+          status: 'Publicado',
+          ticketTiers: {
+            create: [
+              { name: 'General', price: 800, stock: 1000 },
+              { name: 'VIP', price: 1500, stock: 500 },
+              { name: 'Backstage', price: 3500, stock: 100 }
+            ]
+          }
+        }
+      });
+    }
+
+    // Crear la orden en la BD
+    const dbOrder = await prisma.order.create({
+      data: {
+        eventId,
+        buyerName,
+        buyerEmail,
+        buyerPhone,
+        totalAmount: Number(transaction_amount),
+        status: 'Pagado',
+        paymentIntent: payment.id.toString(),
+        customerId: dbCustomer.id
+      },
+      include: {
+        event: true
+      }
+    });
+
+    const ticketPromises = [];
+    const tierUpdates = {};
+
+    for (const item of tickets) {
+      let tier = await prisma.ticketTier.findFirst({
+        where: {
+          OR: [
+            { id: item.ticketTierId },
+            { eventId: eventId, name: { equals: item.ticketTierId, mode: 'insensitive' } },
+            { eventId: eventId, name: { equals: item.name, mode: 'insensitive' } }
+          ]
+        }
+      });
+
+      if (!tier) {
+        tier = await prisma.ticketTier.create({
+          data: {
+            eventId: eventId,
+            name: item.name || item.ticketTierId || 'General',
+            price: item.price || 800,
+            stock: 1000
+          }
+        });
+      }
+
+      tierUpdates[tier.id] = (tierUpdates[tier.id] || 0) + item.qty;
+
+      for (let i = 0; i < item.qty; i++) {
+        ticketPromises.push(
+          prisma.ticket.create({
+            data: {
+              orderId: dbOrder.id,
+              ticketTierId: tier.id
+            }
+          })
+        );
+      }
+    }
+
+    const createdTickets = await Promise.all(ticketPromises);
+
+    // Actualizar stock vendido
+    for (const [tierId, qty] of Object.entries(tierUpdates)) {
+      await prisma.ticketTier.update({
+        where: { id: tierId },
+        data: { sold: { increment: qty } }
+      });
+    }
+
+    res.json({
+      success: true,
+      orderId: dbOrder.id,
+      tickets: createdTickets
+    });
+
+  } catch (error) {
+    console.error("Error al procesar pago con Mercado Pago:", error);
     res.status(500).json({ error: error.message });
   }
 });

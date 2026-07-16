@@ -57,9 +57,30 @@
           <!-- Payment Form -->
           <div class="checkout-section">
             <h2 class="section-title">Método de Pago</h2>
-            <p class="section-desc">Ingresa los datos de tu tarjeta de crédito o débito. Tu pago es seguro.</p>
+            <p class="section-desc">Selecciona tu método de pago y completa la transacción de forma segura.</p>
             
-            <div class="payment-form">
+            <!-- Payment Method Selector Tabs -->
+            <div class="payment-tabs">
+              <button 
+                type="button" 
+                class="tab-btn" 
+                :class="{ active: paymentMethod === 'simulation' }" 
+                @click="setPaymentMethod('simulation')"
+              >
+                Simulador (Tarjeta Virtual)
+              </button>
+              <button 
+                type="button" 
+                class="tab-btn" 
+                :class="{ active: paymentMethod === 'mercadopago' }" 
+                @click="setPaymentMethod('mercadopago')"
+              >
+                Tarjeta Real (Mercado Pago)
+              </button>
+            </div>
+
+            <!-- SIMULATOR FLOW -->
+            <div v-if="paymentMethod === 'simulation'" class="payment-form">
               <!-- Card Visual Simulation -->
               <div class="card-visual">
                 <div class="card-chip"></div>
@@ -88,6 +109,12 @@
                   <input id="cardCvc" type="password" class="form-control" placeholder="***" maxlength="4" required />
                 </div>
               </div>
+            </div>
+
+            <!-- MERCADO PAGO FLOW -->
+            <div v-show="paymentMethod === 'mercadopago'" class="mp-form-container">
+              <div v-if="isMpLoading" class="mp-loading">Cargando pasarela de pago...</div>
+              <div id="cardPaymentBrick_container"></div>
             </div>
           </div>
 
@@ -124,7 +151,7 @@
               <span class="text-accent">{{ formatCurrency(total) }}</span>
             </div>
 
-            <button class="btn btn-primary btn-block pay-btn" @click="processPayment">
+            <button v-if="paymentMethod === 'simulation'" class="btn btn-primary btn-block pay-btn" @click="processPayment">
               Pagar {{ formatCurrency(total) }}
             </button>
             
@@ -211,6 +238,159 @@ const formatCurrency = (amount) => {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount)
 }
 
+// Mercado Pago integration state
+const paymentMethod = ref('simulation')
+const isMpLoading = ref(false)
+const mpBrickController = ref(null)
+
+const setPaymentMethod = (method) => {
+  paymentMethod.value = method
+  if (method === 'mercadopago' && !mpBrickController.value) {
+    loadMercadoPago()
+  }
+}
+
+// Carga dinámica del SDK de Mercado Pago
+const loadMercadoPago = () => {
+  isMpLoading.value = true
+  if (window.MercadoPago) {
+    initMPBrick()
+    return
+  }
+  const script = document.createElement('script')
+  script.src = 'https://sdk.mercadopago.com/js/v2'
+  script.onload = () => {
+    initMPBrick()
+  }
+  script.onerror = () => {
+    isMpLoading.value = false
+    alert('Error al cargar la pasarela de Mercado Pago. Inténtalo de nuevo.')
+  }
+  document.head.appendChild(script)
+}
+
+const initMPBrick = async () => {
+  try {
+    const publicKey = import.meta.env.VITE_MERCADO_PAGO_PUBLIC_KEY || 'TEST-abd7c78c-e45b-4f36-8433-58af7ef2779c'
+    const mp = new window.MercadoPago(publicKey, { locale: 'es-MX' })
+    const bricksBuilder = mp.bricks()
+    
+    // Si ya existe un brick, lo desmontamos antes de recrear
+    if (mpBrickController.value) {
+      await mpBrickController.value.unmount()
+    }
+    
+    mpBrickController.value = await bricksBuilder.create(
+      'cardPayment',
+      'cardPaymentBrick_container',
+      {
+        initialization: {
+          amount: total.value,
+          payer: {
+            email: buyerEmail.value || 'cliente@correo.com',
+          },
+        },
+        customization: {
+          visual: {
+            style: {
+              theme: 'dark', // Tema oscuro premium
+            },
+          },
+        },
+        callbacks: {
+          onReady: () => {
+            isMpLoading.value = false
+          },
+          onSubmit: (formData) => {
+            return new Promise((resolve, reject) => {
+              processMercadoPagoPayment(formData, resolve, reject)
+            })
+          },
+          onError: (error) => {
+            console.error('Error de Mercado Pago Brick:', error)
+            isMpLoading.value = false
+          },
+        },
+      }
+    )
+  } catch (error) {
+    console.error('Error al inicializar Brick de Mercado Pago:', error)
+    isMpLoading.value = false
+  }
+}
+
+// Procesar el pago con el backend a través del Brick
+const processMercadoPagoPayment = async (formData, resolveBrick, rejectBrick) => {
+  if (!buyerName.value.trim() || !buyerEmail.value.trim()) {
+    alert('Por favor, ingresa los datos del comprador.')
+    rejectBrick()
+    return
+  }
+
+  if (attendees.value.some(name => !name.trim())) {
+    alert('Por favor, ingresa los nombres de todos los asistentes.')
+    rejectBrick()
+    return
+  }
+
+  const phoneVal = buyerPhone.value.trim()
+  if (phoneVal && phoneVal.length !== 10) {
+    alert('Por favor, ingresa un número de teléfono de contacto de exactamente 10 dígitos.')
+    rejectBrick()
+    return
+  }
+
+  try {
+    const eventId = route.query.eventId || '1'
+    const apiUrl = import.meta.env.VITE_API_URL 
+      ? `${import.meta.env.VITE_API_URL}/api/orders/mercado-pago` 
+      : 'http://localhost:3001/api/orders/mercado-pago'
+
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        token: formData.token,
+        issuer_id: formData.issuer_id,
+        payment_method_id: formData.payment_method_id,
+        transaction_amount: formData.transaction_amount,
+        installments: formData.installments,
+        payer: formData.payer,
+        orderData: {
+          eventId: eventId,
+          buyerName: buyerName.value.trim(),
+          buyerEmail: buyerEmail.value.trim(),
+          buyerPhone: buyerPhone.value.trim() || '5500000000',
+          tickets: cartItems.value.map(item => ({
+            ticketTierId: item.type,
+            qty: item.qty
+          }))
+        }
+      })
+    })
+
+    if (!res.ok) {
+      const errData = await res.json()
+      throw new Error(errData.error || 'Error al procesar el pago en el servidor.')
+    }
+
+    const data = await res.json()
+    const createdTickets = data.tickets || []
+
+    // Pago exitoso! Generamos PDF
+    await generatePdfAndNotify(createdTickets, data)
+    
+    resolveBrick() // Notificar al brick que el pago fue procesado con éxito
+  } catch (error) {
+    console.error('Error al procesar pago con Mercado Pago:', error)
+    alert(`No se pudo procesar la compra: ${error.message}`)
+    rejectBrick() // Notificar al brick que hubo un error
+  }
+}
+
+// Simulador: Procesar Pago
 const processPayment = async () => {
   if (!buyerName.value.trim() || !buyerEmail.value.trim()) {
     alert('Por favor, ingresa los datos del comprador.')
@@ -228,7 +408,6 @@ const processPayment = async () => {
     return
   }
 
-  // 1. Llamar al Backend para registrar la compra
   let createdTickets = []
   try {
     const eventId = route.query.eventId || '1'
@@ -261,12 +440,17 @@ const processPayment = async () => {
 
     const data = await res.json()
     createdTickets = data.tickets || []
+    
+    // Generar PDF y enviar correo
+    await generatePdfAndNotify(createdTickets, data)
   } catch (error) {
-    console.error("Error al procesar el pago:", error)
+    console.error("Error al procesar el pago simulado:", error)
     alert(`No se pudo procesar la compra: ${error.message}`)
-    return
   }
+}
 
+// Función auxiliar para generar el PDF y disparar el correo (compartida por simulador y MP)
+const generatePdfAndNotify = async (createdTickets, data) => {
   // Cargar el póster para incrustarlo en el PDF (soporta CORS para imágenes de Cloudinary)
   const posterImg = new Image()
   posterImg.crossOrigin = 'anonymous'
@@ -361,11 +545,11 @@ const processPayment = async () => {
     doc.text('SOLD OUT.', tX + 6.5, tY + 54, { angle: 90 })
     doc.restoreGraphicsState()
 
-    // --- PORTADA/FLYER DEL EVENTO ---
+    // --- PORTADA/FLYER DEL EVENTO (100% CUADRADA) ---
     let flyerX = tX + 14
-    let flyerY = tY + 12
-    let flyerWidth = 36
-    let flyerHeight = 56
+    let flyerWidth = 38
+    let flyerHeight = 38
+    let flyerY = tY + (tH - flyerHeight) / 2
     try {
       doc.addImage(posterImg, 'PNG', flyerX, flyerY, flyerWidth, flyerHeight)
       
@@ -828,5 +1012,38 @@ label {
 }
 .contact-form {
   margin-top: 1rem;
+}
+
+/* Mercado Pago integration styles */
+.payment-tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-gray);
+  padding-bottom: 0.5rem;
+}
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-light-gray);
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 2px solid transparent;
+}
+.tab-btn.active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+.mp-form-container {
+  margin-top: 1rem;
+  min-height: 250px;
+}
+.mp-loading {
+  text-align: center;
+  color: var(--color-light-gray);
+  padding: 2rem 0;
+  font-style: italic;
 }
 </style>
