@@ -168,7 +168,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { jsPDF } from 'jspdf'
 import QRCode from 'qrcode'
@@ -314,12 +314,12 @@ const initMPBrick = async () => {
         customization: {
           visual: {
             style: {
-              theme: 'dark', // Siempre oscuro (negro/nocturno)
+              theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'default' : 'dark',
               customVariables: {
                 baseColor: '#b91c1c', // Botón principal y acentos en Rojo
-                formBackgroundColor: '#121212', // Fondo oscuro coincidente
-                inputBackgroundColor: '#1c1c1c', // Fondo de inputs coincidente
-                textPrimaryColor: '#ffffff', // Texto principal blanco
+                formBackgroundColor: document.documentElement.getAttribute('data-theme') === 'light' ? '#ffffff' : '#121212',
+                inputBackgroundColor: document.documentElement.getAttribute('data-theme') === 'light' ? '#ffffff' : '#1c1c1c',
+                textPrimaryColor: document.documentElement.getAttribute('data-theme') === 'light' ? '#111827' : '#ffffff',
                 buttonTextColor: '#ffffff' // Texto de botón blanco
               }
             },
@@ -769,7 +769,26 @@ onMounted(async () => {
       console.error("Error al cargar evento en Checkout:", error)
     }
   }
-})</script>
+
+  // Observe theme changes to dynamically re-initialize Mercado Pago Brick
+  if (typeof MutationObserver !== 'undefined') {
+    themeObserver = new MutationObserver(() => {
+      if (paymentMethod.value === 'mercadopago' && window.MercadoPago) {
+        initMPBrick()
+      }
+    })
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+  }
+})
+
+let themeObserver = null
+
+onUnmounted(() => {
+  if (themeObserver) {
+    themeObserver.disconnect()
+  }
+})
+</script>
 
 <style scoped>
 .checkout-page {
