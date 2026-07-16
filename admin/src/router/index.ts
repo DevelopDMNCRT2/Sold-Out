@@ -59,7 +59,7 @@ const router = createRouter({
       name: 'Ecommerce',
       component: () => import('../views/Ecommerce.vue'),
       meta: {
-        title: 'eCommerce Dashboard',
+        title: 'Estadísticas',
       },
     },
     {
@@ -194,6 +194,6 @@ const router = createRouter({
 export default router
 
 router.beforeEach((to, from, next) => {
-  document.title = to.meta.title ? `${to.meta.title} | SoldOut Admin` : 'SoldOut | Admin'
+  document.title = to.meta.title ? `${to.meta.title} | SoldOut` : 'SoldOut'
   next()
 })
