@@ -31,8 +31,8 @@
       </nav>
     </div>
 
-    <fieldset :disabled="isReadOnly" class="contents">
     <div class="space-y-6">
+    <fieldset :disabled="isReadOnly" class="contents">
       
       <!-- TAB 1: INFORMACIÓN GENERAL -->
       <div v-if="currentTab === 'informacion'" class="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -393,9 +393,8 @@
           </div>
         </ComponentCard>
       </div>
-
-    </div>
     </fieldset>
+    </div>
 
     <!-- Ticket Modal -->
     <Modal v-if="isTicketModalOpen" @close="closeTicketModal" :fullScreenBackdrop="true">
