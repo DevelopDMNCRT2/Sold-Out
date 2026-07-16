@@ -43,12 +43,18 @@ const priceBreakdown = computed(() => {
       totalQty += qty
     })
   } else {
-    if (!currentTicket.value) return null
+    if (!currentTicket.value) {
+      return {
+        subtotal: 0,
+        totalQty: 0,
+        serviceFee: 0,
+        taxes: 0,
+        total: 0
+      }
+    }
     basePrice = currentTicket.value.price * quantity.value
     totalQty = quantity.value
   }
-  
-  if (totalQty === 0) return null
   
   const serviceFee = basePrice * 0.10 // 10%
   const taxes = basePrice * 0.16 // 16% IVA
