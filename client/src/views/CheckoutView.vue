@@ -168,7 +168,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { jsPDF } from 'jspdf'
 import QRCode from 'qrcode'
@@ -304,7 +304,10 @@ const initMPBrick = async () => {
         customization: {
           visual: {
             style: {
-              theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'default' : 'dark',
+              theme: 'dark', // Siempre oscuro (negro/nocturno)
+              customVariables: {
+                themeColor: '#b91c1c', // Botón principal y acentos en Rojo
+              }
             },
           },
         },
@@ -752,26 +755,7 @@ onMounted(async () => {
       console.error("Error al cargar evento en Checkout:", error)
     }
   }
-
-  // Observe theme changes to dynamically re-initialize Mercado Pago Brick
-  if (typeof MutationObserver !== 'undefined') {
-    themeObserver = new MutationObserver(() => {
-      if (paymentMethod.value === 'mercadopago' && window.MercadoPago) {
-        initMPBrick()
-      }
-    })
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
-  }
-})
-
-let themeObserver = null
-
-onUnmounted(() => {
-  if (themeObserver) {
-    themeObserver.disconnect()
-  }
-})
-</script>
+})</script>
 
 <style scoped>
 .checkout-page {
