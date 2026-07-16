@@ -26,6 +26,31 @@
             </div>
           </div>
 
+          <!-- Contact Info Form -->
+          <div class="checkout-section">
+            <h2 class="section-title">Datos del Comprador</h2>
+            <div v-if="isLoggedIn" class="buyer-info-badge">
+              <p>Comprando como: <strong>{{ buyerName }}</strong> ({{ buyerEmail }})</p>
+            </div>
+            <div v-else class="contact-form">
+              <p class="section-desc">Ingresa tus datos para registrar la compra y recibir los boletos por correo electrónico.</p>
+              <div class="form-group">
+                <label for="buyerName">Nombre Completo</label>
+                <input id="buyerName" v-model="buyerName" type="text" class="form-control" placeholder="Ej. Juan Pérez" required />
+              </div>
+              <div class="form-row">
+                <div class="form-group half">
+                  <label for="buyerEmail">Correo Electrónico</label>
+                  <input id="buyerEmail" v-model="buyerEmail" type="email" class="form-control" placeholder="Ej. juan@correo.com" required />
+                </div>
+                <div class="form-group half">
+                  <label for="buyerPhone">Teléfono de Contacto</label>
+                  <input id="buyerPhone" v-model="buyerPhone" type="tel" class="form-control" placeholder="Ej. 5512345678" maxlength="10" @input="buyerPhone = buyerPhone.replace(/\D/g, '')" />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Payment Form -->
           <div class="checkout-section">
             <h2 class="section-title">Método de Pago</h2>
@@ -71,8 +96,8 @@
             <h3>Resumen de Compra</h3>
             
             <div class="summary-event-info">
-              <h4>Neon Nights Festival</h4>
-              <p>15 Oct 2026 | Estadio Nacional</p>
+              <h4>{{ eventData ? eventData.name : 'Cargando evento...' }}</h4>
+              <p>{{ eventData ? eventData.date : '' }} <span v-if="eventData && eventData.venue">| {{ eventData.venue }}</span></p>
             </div>
 
             <div class="summary-tickets">
@@ -128,9 +153,19 @@ const ticketType = computed(() => route.query.type || 'General')
 
 // Form state
 const attendees = ref(Array(quantity.value).fill(''))
+const isLoggedIn = ref(false)
+const buyerName = ref('')
+const buyerEmail = ref('')
+const buyerPhone = ref('')
+const eventData = ref(null)
 
-// Mock prices based on type
+// Get price dynamically from event details if available
 const getPrice = (type) => {
+  if (eventData.value && eventData.value.ticketTiers) {
+    const tier = eventData.value.ticketTiers.find(t => t.name.toLowerCase() === type.toLowerCase())
+    if (tier) return tier.price
+  }
+  // Fallbacks
   if (type === 'VIP') return 1500
   if (type === 'Backstage') return 3500
   return 800
@@ -146,32 +181,90 @@ const formatCurrency = (amount) => {
 }
 
 const processPayment = async () => {
+  if (!buyerName.value.trim() || !buyerEmail.value.trim()) {
+    alert('Por favor, ingresa los datos del comprador.')
+    return
+  }
+
   if (attendees.value.some(name => !name.trim())) {
     alert('Por favor, ingresa los nombres de todos los asistentes antes de pagar.')
     return
   }
 
-  // Cargar el póster para incrustarlo en el PDF
+  const phoneVal = buyerPhone.value.trim()
+  if (phoneVal && phoneVal.length !== 10) {
+    alert('Por favor, ingresa un número de teléfono de contacto de exactamente 10 dígitos.')
+    return
+  }
+
+  // 1. Llamar al Backend para registrar la compra
+  let createdTickets = []
+  try {
+    const eventId = route.query.eventId || '1'
+    const apiUrl = import.meta.env.VITE_API_URL 
+      ? `${import.meta.env.VITE_API_URL}/api/orders` 
+      : 'http://localhost:3001/api/orders'
+      
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        eventId: eventId,
+        buyerName: buyerName.value.trim(),
+        buyerEmail: buyerEmail.value.trim(),
+        buyerPhone: buyerPhone.value.trim() || '5500000000',
+        totalAmount: total.value,
+        tickets: [
+          {
+            ticketTierId: ticketType.value, // se resolverá por nombre en el backend
+            qty: quantity.value
+          }
+        ]
+      })
+    })
+
+    if (!res.ok) {
+      const errData = await res.json()
+      throw new Error(errData.error || 'Error al crear la orden en el servidor')
+    }
+
+    const data = await res.json()
+    createdTickets = data.tickets || []
+  } catch (error) {
+    console.error("Error al procesar el pago:", error)
+    alert(`No se pudo procesar la compra: ${error.message}`)
+    return
+  }
+
+  // Cargar el póster para incrustarlo en el PDF (soporta CORS para imágenes de Cloudinary)
   const posterImg = new Image()
-  posterImg.src = '/poster.png'
+  posterImg.crossOrigin = 'anonymous'
+  posterImg.src = (eventData.value && eventData.value.coverImage) ? eventData.value.coverImage : '/poster.png'
   await new Promise((resolve) => {
     posterImg.onload = resolve
     posterImg.onerror = resolve // Evitar bloqueo si falla
   })
 
-  // Generar 1 PDF por cada asistente
-  for (let i = 0; i < quantity.value; i++) {
-    const attendeeName = attendees.value[i].trim()
-    const ticketId = `TKT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
-    
-    // Usaremos orientación landscape para un boleto más realista, o portrait A4 con un boleto en medio.
-    // Usaremos A4 portrait (210x297) para que sea fácil de imprimir en casa.
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    })
+  // Instanciar jsPDF una sola vez para todos los boletos (A4 retrato)
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  })
 
+  // Generar páginas del PDF único
+  for (let i = 0; i < quantity.value; i++) {
+    // Si no es la primera página, añadir una nueva
+    if (i > 0) {
+      doc.addPage()
+    }
+
+    const attendeeName = attendees.value[i].trim()
+    // Utilizar el ID del boleto real retornado por el backend si está disponible
+    const ticketId = createdTickets[i]?.id || `TKT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+    
     // Fondo blanco de la hoja
     doc.setFillColor(255, 255, 255)
     doc.rect(0, 0, 210, 297, 'F')
@@ -186,7 +279,7 @@ const processPayment = async () => {
     doc.setTextColor(100, 100, 100)
     doc.text('Imprime este documento o muéstralo desde tu dispositivo móvil.', 105, 37, { align: 'center' })
 
-    // Dimensiones y coordenadas del BOLETO (Ticket)
+    // Dimensiones y coordenadas del BOLETO (Ticket de 80mm de alto)
     const tX = 15
     const tY = 50
     const tW = 180
@@ -194,7 +287,7 @@ const processPayment = async () => {
     const stubW = 55 // Ancho del talón (donde va el QR)
     const mainW = tW - stubW
 
-    // Sombra suave o contorno del boleto
+    // Sombra suave o contorno del boleto redondeado
     doc.setDrawColor(200, 200, 200)
     doc.setLineWidth(0.5)
     doc.setFillColor(252, 252, 252)
@@ -239,13 +332,14 @@ const processPayment = async () => {
     doc.setTextColor(0, 0, 0)
     doc.setFontSize(16)
     doc.setFont('helvetica', 'bold')
-    doc.text('NEON NIGHTS FESTIVAL', flyerX, tY + 28)
+    doc.text((eventData.value ? eventData.value.name : 'NEON NIGHTS FESTIVAL').toUpperCase(), flyerX, tY + 28)
     
     doc.setFontSize(10)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(80, 80, 80)
-    doc.text(`15 Oct 2026 • 20:00 Hrs`, flyerX, tY + 36)
-    doc.text(`Estadio Nacional`, flyerX, tY + 41)
+    const eventTimeStr = eventData.value && eventData.value.startTime ? ` • ${eventData.value.startTime} Hrs` : ''
+    doc.text(`${eventData.value ? eventData.value.date : '15 Oct 2026'}${eventTimeStr}`, flyerX, tY + 36)
+    doc.text(eventData.value ? eventData.value.venue : 'Estadio Nacional', flyerX, tY + 41)
 
     // Datos del Cliente y Boleto
     doc.setFontSize(8)
@@ -295,17 +389,69 @@ const processPayment = async () => {
     doc.setFontSize(7)
     doc.setTextColor(150, 150, 150)
     doc.text('SOLD OUT PLATFORM', tX + mainW + (stubW/2), tY + tH - 5, { align: 'center' })
-
-    // Guardar el PDF y forzar descarga
-    doc.save(`Boleto_${ticketType.value}_${attendeeName.replace(/ /g, '_')}.pdf`)
   }
 
-  alert('¡Pago procesado con éxito! Tus boletos se han descargado automáticamente a tu computadora.')
+  // Guardar el archivo PDF único
+  doc.save(`Boletos_${ticketType.value}_${quantity.value}x.pdf`)
+
+  // Enviar el PDF generado al correo del comprador vía backend (de forma no bloqueante)
+  try {
+    const pdfDataUrl = doc.output('datauristring')
+    const orderId = createdTickets[0]?.orderId || data.orderId || 'temp'
+    const emailApiUrl = import.meta.env.VITE_API_URL 
+      ? `${import.meta.env.VITE_API_URL}/api/orders/${orderId}/send-email` 
+      : `http://localhost:3001/api/orders/${orderId}/send-email`
+      
+    fetch(emailApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        pdfDataUrl,
+        buyerEmail: buyerEmail.value.trim(),
+        buyerName: buyerName.value.trim()
+      })
+    });
+  } catch (emailError) {
+    console.error("Error al despachar el correo con PDF:", emailError);
+  }
+
+  alert('¡Pago procesado con éxito! Tus boletos se han descargado automáticamente a tu computadora y enviado por correo.')
   router.push('/')
 }
 
-onMounted(() => {
+onMounted(async () => {
   window.scrollTo(0, 0)
+  
+  // Cargar datos del usuario si tiene sesión activa
+  const savedCustomer = localStorage.getItem('customerData')
+  if (savedCustomer) {
+    try {
+      const customer = JSON.parse(savedCustomer)
+      buyerName.value = customer.name || ''
+      buyerEmail.value = customer.email || ''
+      isLoggedIn.value = true
+    } catch (e) {
+      console.error("Error al leer datos del customer:", e)
+    }
+  }
+
+  // Cargar información real del evento
+  const eventId = route.query.eventId
+  if (eventId) {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL 
+        ? `${import.meta.env.VITE_API_URL}/api/events/${eventId}` 
+        : `http://localhost:3001/api/events/${eventId}`
+      const res = await fetch(apiUrl)
+      if (res.ok) {
+        eventData.value = await res.json()
+      }
+    } catch (error) {
+      console.error("Error al cargar evento en Checkout:", error)
+    }
+  }
 })
 </script>
 
@@ -560,5 +706,22 @@ label {
 
 .secure-text svg {
   color: #27c93f; /* green secure lock */
+}
+
+/* Estilos de la información de comprador */
+.buyer-info-badge {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1.2rem;
+  border-radius: 8px;
+  color: var(--color-white);
+  margin-top: 1rem;
+  font-size: 0.95rem;
+}
+.buyer-info-badge strong {
+  color: var(--color-accent);
+}
+.contact-form {
+  margin-top: 1rem;
 }
 </style>

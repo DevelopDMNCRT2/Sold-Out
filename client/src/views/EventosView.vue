@@ -16,17 +16,17 @@
           <div class="filter-group">
             <h3>Categoría</h3>
             <div class="filter-options">
-              <label class="filter-label"><input type="checkbox" checked> Todos</label>
-              <label class="filter-label"><input type="checkbox"> Conciertos</label>
-              <label class="filter-label"><input type="checkbox"> Festivales</label>
-              <label class="filter-label"><input type="checkbox"> Teatro & Arte</label>
-              <label class="filter-label"><input type="checkbox"> Deportes</label>
+              <label class="filter-label"><input type="checkbox" v-model="allCategoriesChecked" @change="onAllCategoriesChange"> Todos</label>
+              <label class="filter-label"><input type="checkbox" v-model="categoryFilters.conciertos"> Conciertos</label>
+              <label class="filter-label"><input type="checkbox" v-model="categoryFilters.festivales"> Festivales</label>
+              <label class="filter-label"><input type="checkbox" v-model="categoryFilters.teatro"> Teatro & Arte</label>
+              <label class="filter-label"><input type="checkbox" v-model="categoryFilters.deportes"> Deportes</label>
             </div>
           </div>
 
           <div class="filter-group">
             <h3>Estado</h3>
-            <select class="form-control">
+            <select class="form-control" v-model="selectedState">
               <option value="">Cualquier Estado</option>
               <option value="CDMX">CDMX</option>
               <option value="Jalisco">Jalisco</option>
@@ -36,7 +36,7 @@
 
           <div class="filter-group">
             <h3>Ciudad</h3>
-            <select class="form-control">
+            <select class="form-control" v-model="selectedCity">
               <option value="">Cualquier Ciudad</option>
               <option value="cdmx">Ciudad de México</option>
               <option value="guadalajara">Guadalajara</option>
@@ -47,31 +47,31 @@
           <div class="filter-group">
             <h3>Fecha</h3>
             <div class="filter-options">
-              <label class="filter-label"><input type="radio" name="date" checked> Cualquier fecha</label>
-              <label class="filter-label"><input type="radio" name="date"> Este fin de semana</label>
-              <label class="filter-label"><input type="radio" name="date"> Este mes</label>
-              <label class="filter-label"><input type="radio" name="date"> Próximos 3 meses</label>
+              <label class="filter-label"><input type="radio" name="date" value="all" v-model="selectedDateRange"> Cualquier fecha</label>
+              <label class="filter-label"><input type="radio" name="date" value="weekend" v-model="selectedDateRange"> Este fin de semana</label>
+              <label class="filter-label"><input type="radio" name="date" value="month" v-model="selectedDateRange"> Este mes</label>
+              <label class="filter-label"><input type="radio" name="date" value="3months" v-model="selectedDateRange"> Próximos 3 meses</label>
             </div>
           </div>
           
-          <button class="btn btn-primary btn-block" style="margin-top: 1rem;">Aplicar Filtros</button>
+          <button class="btn btn-outline btn-block" style="margin-top: 1rem;" @click="clearFilters">Limpiar Filtros</button>
         </aside>
 
         <!-- Main Product Grid -->
         <main class="shop-main">
           <div class="shop-header">
-            <span class="results-count">Mostrando 8 eventos</span>
+            <span class="results-count">Mostrando {{ sortedConcerts.length }} {{ sortedConcerts.length === 1 ? 'evento' : 'eventos' }}</span>
             <div class="sort-by">
-              <select class="form-control" style="width: auto; padding: 0.5rem;">
-                <option>Más Populares</option>
-                <option>Fecha: Más próximos</option>
-                <option>Fecha: Más lejanos</option>
+              <select v-model="sortBy" class="form-control" style="width: auto; padding: 0.5rem;">
+                <option value="popular">Más Populares</option>
+                <option value="date-asc">Fecha: Más próximos</option>
+                <option value="date-desc">Fecha: Más lejanos</option>
               </select>
             </div>
           </div>
 
-          <div class="concerts-grid">
-            <RouterLink v-for="concert in concerts" :key="concert.id" :to="`/evento/${concert.id}`" class="concert-card" style="text-decoration: none; color: inherit; display: block;">
+          <div class="concerts-grid" v-if="sortedConcerts.length > 0">
+            <RouterLink v-for="concert in sortedConcerts" :key="concert.id" :to="`/evento/${concert.id}`" class="concert-card" style="text-decoration: none; color: inherit; display: block;">
               <div class="card-image-wrapper">
                 <img :src="concert.image" :alt="concert.title" class="card-image">
                 <div class="card-overlay">
@@ -85,6 +85,10 @@
               </div>
             </RouterLink>
           </div>
+          <div class="no-results" v-else>
+            <p>No se encontraron eventos con los filtros seleccionados.</p>
+            <button class="btn btn-primary" @click="clearFilters" style="margin-top: 1rem;">Limpiar Filtros</button>
+          </div>
         </main>
 
       </div>
@@ -93,18 +97,163 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
-const concerts = ref([
-  { id: 1, title: 'Neon Nights Festival', date: '15 Oct 2026', location: 'Estadio Nacional', image: '/poster.png' },
-  { id: 2, title: 'Rock Symphony', date: '22 Oct 2026', location: 'Arena Principal', image: '/poster.png' },
-  { id: 3, title: 'Indie Vibes', date: '05 Nov 2026', location: 'Teatro Metropolitano', image: '/poster.png' },
-  { id: 4, title: 'Techno Underground', date: '12 Nov 2026', location: 'Club Vertex', image: '/poster.png' },
-  { id: 5, title: 'Jazz & Wine', date: '19 Nov 2026', location: 'Jardines del Centro', image: '/poster.png' },
-  { id: 6, title: 'Metal Fest', date: '28 Nov 2026', location: 'Parque Bicentenario', image: '/poster.png' },
-  { id: 7, title: 'Urban Flow', date: '03 Dic 2026', location: 'Foro Sol', image: '/poster.png' },
-  { id: 8, title: 'Classical Evening', date: '10 Dic 2026', location: 'Auditorio Nacional', image: '/poster.png' },
-])
+const concerts = ref([])
+
+// Variables de estado para los filtros
+const categoryFilters = ref({
+  conciertos: false,
+  festivales: false,
+  teatro: false,
+  deportes: false
+})
+const allCategoriesChecked = ref(true)
+const selectedState = ref('')
+const selectedCity = ref('')
+const selectedDateRange = ref('all')
+const sortBy = ref('popular')
+
+// Desmarcar las categorías individuales si se marca "Todos"
+const onAllCategoriesChange = () => {
+  if (allCategoriesChecked.value) {
+    categoryFilters.value.conciertos = false
+    categoryFilters.value.festivales = false
+    categoryFilters.value.teatro = false
+    categoryFilters.value.deportes = false
+  }
+}
+
+// Escuchar cambios en las categorías específicas para desmarcar o marcar "Todos"
+watch(
+  () => [
+    categoryFilters.value.conciertos,
+    categoryFilters.value.festivales,
+    categoryFilters.value.teatro,
+    categoryFilters.value.deportes
+  ],
+  (newVals) => {
+    if (newVals.some(v => v)) {
+      allCategoriesChecked.value = false
+    } else {
+      allCategoriesChecked.value = true
+    }
+  }
+)
+
+const clearFilters = () => {
+  categoryFilters.value.conciertos = false
+  categoryFilters.value.festivales = false
+  categoryFilters.value.teatro = false
+  categoryFilters.value.deportes = false
+  allCategoriesChecked.value = true
+  selectedState.value = ''
+  selectedCity.value = ''
+  selectedDateRange.value = 'all'
+}
+
+onMounted(async () => {
+  try {
+    const apiUrl = import.meta.env.VITE_API_URL 
+      ? `${import.meta.env.VITE_API_URL}/api/events` 
+      : 'http://localhost:3001/api/events'
+    const res = await fetch(apiUrl)
+    if (res.ok) {
+      const data = await res.json()
+      // Mostrar todos los eventos que no estén cancelados
+      concerts.value = data.filter(event => event.status !== 'Cancelado')
+    }
+  } catch (error) {
+    console.error("Error al cargar eventos en EventosView:", error)
+  }
+})
+
+// Lógica de Filtrado Reactivo
+const filteredConcerts = computed(() => {
+  return concerts.value.filter(concert => {
+    // 1. Filtrar por Categoría
+    const hasCategoryFilter = Object.values(categoryFilters.value).some(v => v)
+    if (hasCategoryFilter) {
+      const matchConcierto = categoryFilters.value.conciertos && concert.category.toLowerCase().includes('conciert')
+      const matchFestival = categoryFilters.value.festivales && concert.category.toLowerCase().includes('festival')
+      const matchTeatro = categoryFilters.value.teatro && (concert.category.toLowerCase().includes('teatro') || concert.category.toLowerCase().includes('arte'))
+      const matchDeporte = categoryFilters.value.deportes && (concert.category.toLowerCase().includes('deport') || concert.category.toLowerCase().includes('futbol'))
+      
+      if (!matchConcierto && !matchFestival && !matchTeatro && !matchDeporte) {
+        return false
+      }
+    }
+    
+    // 2. Filtrar por Estado
+    if (selectedState.value) {
+      if (!concert.state || !concert.state.toLowerCase().includes(selectedState.value.toLowerCase())) {
+        return false
+      }
+    }
+    
+    // 3. Filtrar por Ciudad
+    if (selectedCity.value) {
+      if (!concert.city || !concert.city.toLowerCase().includes(selectedCity.value.toLowerCase())) {
+        return false
+      }
+    }
+    
+    // 4. Filtrar por Fecha
+    if (selectedDateRange.value !== 'all' && concert.date) {
+      const eventDate = new Date(concert.date)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      if (selectedDateRange.value === 'weekend') {
+        const currentDay = today.getDay()
+        const daysToFriday = currentDay === 0 ? -2 : 5 - currentDay
+        const friday = new Date(today)
+        friday.setDate(today.getDate() + daysToFriday)
+        
+        const sunday = new Date(friday)
+        sunday.setDate(friday.getDate() + 2)
+        sunday.setHours(23, 59, 59, 999)
+        
+        if (eventDate < friday || eventDate > sunday) {
+          return false
+        }
+      } else if (selectedDateRange.value === 'month') {
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+        const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999)
+        if (eventDate < startOfMonth || eventDate > endOfMonth) {
+          return false
+        }
+      } else if (selectedDateRange.value === '3months') {
+        const limitDate = new Date(today)
+        limitDate.setMonth(today.getMonth() + 3)
+        limitDate.setHours(23, 59, 59, 999)
+        if (eventDate < today || eventDate > limitDate) {
+          return false
+        }
+      }
+    }
+    
+    return true
+  })
+})
+
+// Mapear y ordenar
+const sortedConcerts = computed(() => {
+  let list = filteredConcerts.value.map(event => ({
+    id: event.id,
+    title: event.name,
+    date: event.date,
+    location: event.venue || 'Por definir',
+    image: event.coverImage || '/poster.png'
+  }))
+  
+  if (sortBy.value === 'date-asc') {
+    return list.sort((a, b) => new Date(a.date) - new Date(b.date))
+  } else if (sortBy.value === 'date-desc') {
+    return list.sort((a, b) => new Date(b.date) - new Date(a.date))
+  }
+  return list
+})
 </script>
 
 .view-title {
@@ -320,5 +469,28 @@ const concerts = ref([
   font-size: 0.9rem;
   color: var(--color-light-gray);
   margin-bottom: 0.2rem;
+}
+
+/* Estilos de no resultados */
+.no-results {
+  text-align: center;
+  padding: 4rem 2rem;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--color-gray);
+  border-radius: 8px;
+  color: var(--color-light-gray);
+  grid-column: 1 / -1;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--color-gray);
+  color: var(--color-white);
+  transition: all 0.3s ease;
+}
+
+.btn-outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--color-white);
 }
 </style>

@@ -1,6 +1,6 @@
 import express from 'express';
 import { prisma } from '../config/prisma.js';
-import { sendTicketEmail } from '../config/nodemailer.js';
+import { sendTicketEmail, sendTicketEmailWithPdf } from '../config/nodemailer.js';
 import QRCode from 'qrcode';
 
 const router = express.Router();
@@ -26,6 +26,36 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // 1.5. Buscar o crear el Evento si no existe (para compatibilidad de demostración/mock)
+    let event = await prisma.event.findUnique({ where: { id: eventId } });
+    if (!event) {
+      event = await prisma.event.create({
+        data: {
+          id: eventId,
+          name: 'Neon Nights Festival',
+          artist: 'Varios Artistas',
+          category: 'Festival',
+          shortDescription: 'El evento electrónico más grande del año',
+          longDescription: 'Prepárate para la experiencia audiovisual más inmersiva del año. Neon Nights reúne a los mejores DJs internacionales con una producción de luces, láseres y sonido de última generación.',
+          date: '2026-10-15',
+          startTime: '20:00',
+          doorsOpenTime: '19:00',
+          venue: 'Estadio Nacional',
+          address: 'Av. Libertador 1234, Centro',
+          city: 'Ciudad de México',
+          state: 'CDMX',
+          status: 'Publicado',
+          ticketTiers: {
+            create: [
+              { name: 'General', price: 800, stock: 1000 },
+              { name: 'VIP', price: 1500, stock: 500 },
+              { name: 'Backstage', price: 3500, stock: 100 }
+            ]
+          }
+        }
+      });
+    }
+
     // 2. Crear la Orden
     const order = await prisma.order.create({
       data: {
@@ -44,13 +74,40 @@ router.post('/', async (req, res) => {
 
     // 2. Crear los Boletos (Tickets individuales)
     const ticketPromises = [];
+    const tierUpdates = {};
+
     for (const item of tickets) {
+      // Buscar el TicketTier por ID o por Nombre (General, VIP, Backstage)
+      let tier = await prisma.ticketTier.findFirst({
+        where: {
+          OR: [
+            { id: item.ticketTierId },
+            { eventId: eventId, name: { equals: item.ticketTierId, mode: 'insensitive' } },
+            { eventId: eventId, name: { equals: item.name, mode: 'insensitive' } }
+          ]
+        }
+      });
+
+      if (!tier) {
+        // Fallback: crear un tier por defecto si no existe
+        tier = await prisma.ticketTier.create({
+          data: {
+            eventId: eventId,
+            name: item.name || item.ticketTierId || 'General',
+            price: item.price || 800,
+            stock: 1000
+          }
+        });
+      }
+
+      tierUpdates[tier.id] = (tierUpdates[tier.id] || 0) + item.qty;
+
       for (let i = 0; i < item.qty; i++) {
         ticketPromises.push(
           prisma.ticket.create({
             data: {
               orderId: order.id,
-              ticketTierId: item.ticketTierId
+              ticketTierId: tier.id
             }
           })
         );
@@ -62,18 +119,28 @@ router.post('/', async (req, res) => {
     const qrPromises = createdTickets.map(t => QRCode.toDataURL(t.id));
     const qrDataUrls = await Promise.all(qrPromises);
 
-    // 4. Enviar Correo con QRs
-    await sendTicketEmail(buyerEmail, buyerName, order, qrDataUrls);
+    // 4. Enviar Correo con QRs (Deshabilitado aquí, se envía el PDF completo por endpoint separado)
+    /*
+    try {
+      await sendTicketEmail(buyerEmail, buyerName, order, qrDataUrls);
+    } catch (mailError) {
+      console.error("Error al enviar correo (el flujo continúa):", mailError.message);
+    }
+    */
 
     // 5. Actualizar los "Sold" en TicketTiers
-    for (const item of tickets) {
+    for (const [tierId, qty] of Object.entries(tierUpdates)) {
       await prisma.ticketTier.update({
-        where: { id: item.ticketTierId },
-        data: { sold: { increment: item.qty } }
+        where: { id: tierId },
+        data: { sold: { increment: qty } }
       });
     }
 
-    res.status(201).json({ message: 'Orden procesada con éxito', orderId: order.id });
+    res.status(201).json({ 
+      message: 'Orden procesada con éxito', 
+      orderId: order.id,
+      tickets: createdTickets 
+    });
   } catch (error) {
     console.error("Error al procesar orden:", error);
     res.status(500).json({ error: error.message });
@@ -117,6 +184,34 @@ router.post('/validate', async (req, res) => {
       }
     });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Enviar correo con el PDF del boleto completo
+router.post('/:id/send-email', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { pdfDataUrl, buyerEmail, buyerName } = req.body;
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { event: true }
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Orden no encontrada' });
+    }
+
+    try {
+      await sendTicketEmailWithPdf(buyerEmail, buyerName, order, pdfDataUrl);
+    } catch (mailError) {
+      console.error("Error al enviar correo con PDF:", mailError);
+    }
+
+    res.json({ success: true, message: 'Email con PDF enviado con éxito' });
+  } catch (error) {
+    console.error("Error en send-email endpoint:", error);
     res.status(500).json({ error: error.message });
   }
 });

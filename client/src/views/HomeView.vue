@@ -1,56 +1,18 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 
-const concerts = ref([
-  { id: 1, title: 'Neon Nights Festival', date: '15 Oct 2026', location: 'Estadio Nacional', image: '/poster.png' },
-  { id: 2, title: 'Rock Symphony', date: '22 Oct 2026', location: 'Arena Principal', image: '/poster.png' },
-  { id: 3, title: 'Indie Vibes', date: '05 Nov 2026', location: 'Teatro Metropolitano', image: '/poster.png' },
-  { id: 4, title: 'Techno Underground', date: '12 Nov 2026', location: 'Club Vertex', image: '/poster.png' },
-  { id: 5, title: 'Jazz & Wine', date: '19 Nov 2026', location: 'Jardines del Centro', image: '/poster.png' },
-  { id: 6, title: 'Metal Fest', date: '28 Nov 2026', location: 'Parque Bicentenario', image: '/poster.png' },
-  { id: 7, title: 'Urban Flow', date: '03 Dic 2026', location: 'Foro Sol', image: '/poster.png' },
-  { id: 8, title: 'Classical Evening', date: '10 Dic 2026', location: 'Auditorio Nacional', image: '/poster.png' },
-])
+const router = useRouter()
+const concerts = ref([])
 
 const heroSlides = ref([
   {
-    id: 1,
+    id: 'welcome',
+    eventId: null,
     title1: 'SIENTE LA MÚSICA',
     titleAccent: 'VIVE EL MOMENTO',
     subtitle: 'Descubre los mejores conciertos y eventos en tu ciudad.',
     btnText: 'Ver Cartelera',
-    bgImage: '/hero.png'
-  },
-  {
-    id: 2,
-    title1: 'NEON NIGHTS',
-    titleAccent: 'FESTIVAL 2026',
-    subtitle: 'El evento electrónico más grande del año. Compra tus entradas ya.',
-    btnText: 'Comprar Boletos',
-    bgImage: '/hero.png'
-  },
-  {
-    id: 3,
-    title1: 'ROCK',
-    titleAccent: 'SYMPHONY',
-    subtitle: 'Tus clásicos favoritos interpretados por una majestuosa orquesta.',
-    btnText: 'Más Información',
-    bgImage: '/hero.png' 
-  },
-  {
-    id: 4,
-    title1: 'URBAN',
-    titleAccent: 'FLOW FEST',
-    subtitle: 'El mayor festival de música urbana en toda Latinoamérica.',
-    btnText: 'Ver Lineup',
-    bgImage: '/hero.png'
-  },
-  {
-    id: 5,
-    title1: 'INDIE',
-    titleAccent: 'VIBES',
-    subtitle: 'Música emergente, arte y gastronomía en un solo lugar.',
-    btnText: 'Últimos Boletos',
     bgImage: '/hero.png'
   }
 ])
@@ -72,8 +34,55 @@ const resetInterval = () => {
   slideInterval = setInterval(nextSlide, 6000)
 }
 
-onMounted(() => {
+const goToEvent = (eventId) => {
+  if (eventId) {
+    router.push(`/evento/${eventId}`)
+  } else {
+    router.push('/eventos')
+  }
+}
+
+onMounted(async () => {
   slideInterval = setInterval(nextSlide, 6000)
+
+  try {
+    const apiUrl = import.meta.env.VITE_API_URL 
+      ? `${import.meta.env.VITE_API_URL}/api/events` 
+      : 'http://localhost:3001/api/events'
+    const res = await fetch(apiUrl)
+    if (res.ok) {
+      const data = await res.json()
+      // Mostrar todos los eventos que no estén cancelados
+      const activeEvents = data.filter(event => event.status !== 'Cancelado')
+      
+      concerts.value = activeEvents.map(event => ({
+        id: event.id,
+        title: event.name,
+        date: event.date,
+        location: event.venue || 'Por definir',
+        image: event.coverImage || '/poster.png'
+      }))
+
+      // Cargar eventos en el hero slider (ordenar destacando los featured)
+      if (activeEvents.length > 0) {
+        const sliderEvents = [...activeEvents]
+          .sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0))
+          .slice(0, 5)
+
+        heroSlides.value = sliderEvents.map(event => ({
+          id: event.id,
+          eventId: event.id,
+          title1: event.name.toUpperCase(),
+          titleAccent: (event.artist || event.category || '').toUpperCase(),
+          subtitle: event.shortDescription || event.longDescription || '¡Asegura tu lugar hoy mismo!',
+          btnText: 'Comprar Boletos',
+          bgImage: event.bannerImage || event.coverImage || '/hero.png'
+        }))
+      }
+    }
+  } catch (error) {
+    console.error("Error al cargar eventos en el Home:", error)
+  }
 })
 
 onUnmounted(() => {
@@ -98,7 +107,7 @@ onUnmounted(() => {
             <div v-if="currentSlide === index" class="hero-text-wrapper">
               <h1 class="hero-title">{{ slide.title1 }} <br><span class="text-accent">{{ slide.titleAccent }}</span></h1>
               <p class="hero-subtitle">{{ slide.subtitle }}</p>
-              <button class="btn btn-primary hero-btn">{{ slide.btnText }}</button>
+              <button class="btn btn-primary hero-btn" @click="goToEvent(slide.eventId)">{{ slide.btnText }}</button>
             </div>
           </Transition>
         </div>

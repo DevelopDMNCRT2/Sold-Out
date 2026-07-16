@@ -4,9 +4,9 @@
       <template #action>
         <div class="flex gap-3">
           <button @click="router.push('/eventos')" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 transition-colors text-sm font-medium">
-            Cancelar
+            {{ isReadOnly ? 'Volver' : 'Cancelar' }}
           </button>
-          <button @click="saveEvent" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition-colors text-sm font-medium">
+          <button v-if="!isReadOnly" @click="saveEvent" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition-colors text-sm font-medium">
             Guardar Evento
           </button>
         </div>
@@ -31,6 +31,7 @@
       </nav>
     </div>
 
+    <fieldset :disabled="isReadOnly" class="contents">
     <div class="space-y-6">
       
       <!-- TAB 1: INFORMACIÓN GENERAL -->
@@ -193,7 +194,7 @@
       <!-- TAB 3: BOLETOS -->
       <div v-if="currentTab === 'boletos'">
         <ComponentCard title="Boletos y Accesos">
-          <template #header-action>
+          <template #header-action v-if="!isReadOnly">
             <button @click="isTicketModalOpen = true" type="button" class="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 transition-colors text-xs font-medium">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Agregar boleto
@@ -209,7 +210,7 @@
                   <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Stock Total</th>
                   <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase dark:text-gray-400" v-if="isEditMode">Vendidos</th>
                   <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase dark:text-gray-400" v-if="isEditMode">Ingresos Estimados</th>
-                  <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Acciones</th>
+                  <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase dark:text-gray-400" v-if="!isReadOnly">Acciones</th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200 dark:bg-transparent dark:divide-gray-700">
@@ -219,7 +220,7 @@
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">{{ ticket.stock }}</td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900 font-semibold dark:text-white" v-if="isEditMode">{{ ticket.sold }}</td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-success-600 font-medium" v-if="isEditMode">${{ ticket.price * ticket.sold }}</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" v-if="!isReadOnly">
                     <div class="flex items-center justify-center gap-3">
                       <button @click="editTicket(idx)" class="text-gray-500 hover:text-warning-500 dark:text-gray-400 dark:hover:text-warning-400 transition-colors" title="Editar">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -369,6 +370,7 @@
       </div>
 
     </div>
+    </fieldset>
 
     <!-- Ticket Modal -->
     <Modal v-if="isTicketModalOpen" @close="closeTicketModal" :fullScreenBackdrop="true">
@@ -492,8 +494,10 @@ const router = useRouter();
 // Determinar si estamos creando un nuevo evento o editando uno existente
 const isEditMode = computed(() => route.params.id !== undefined && route.params.id !== 'nuevo');
 const eventId = route.params.id;
+const isReadOnly = computed(() => route.query.mode === 'view');
 
 const currentPageTitle = computed(() => {
+  if (isReadOnly.value) return `Ver Detalles del Evento #${eventId}`;
   return isEditMode.value ? `Administrar Evento #${eventId}` : 'Crear Nuevo Evento';
 });
 
@@ -529,6 +533,8 @@ const form = reactive({
   state: "",
   mapUrl: "",
   status: "Borrador",
+  coverImage: "",
+  bannerImage: "",
   settings: {
     featured: false,
     showCountdown: true,
@@ -586,6 +592,8 @@ onMounted(async () => {
         state: data.state,
         mapUrl: data.mapUrl,
         status: data.status,
+        coverImage: data.coverImage,
+        bannerImage: data.bannerImage,
         settings: {
           featured: data.featured,
           showCountdown: data.showCountdown,
@@ -595,6 +603,8 @@ onMounted(async () => {
         }
       });
       
+      coverImagePreview.value = data.coverImage || '';
+      bannerImagePreview.value = data.bannerImage || '';
       tickets.value = data.ticketTiers || [];
       sales.value = data.orders || []; // Assuming orders are returned
     } catch (error) {
@@ -697,9 +707,9 @@ const saveEvent = async () => {
     delete payload.settings; // Flatten settings as per our Prisma model
     
     if (isEditMode.value) {
-      // In a real app, we'd have a PUT endpoint
-      // await api.put(`/events/${eventId}`, payload);
+      await api.put(`/events/${eventId}`, payload);
       alert("Cambios guardados con éxito.");
+      router.push('/eventos');
     } else {
       await api.post('/events', payload);
       alert("Evento creado con éxito.");

@@ -6,30 +6,27 @@ const route = useRoute()
 const router = useRouter()
 const eventId = route.params.id
 
-// Mock data for the event
+// Estructura vacía inicial con valores por defecto para evitar errores al renderizar antes de que responda la API
 const event = ref({
   id: eventId,
-  title: 'Neon Nights Festival',
-  subtitle: 'El evento electrónico más grande del año',
-  date: 'Viernes, 15 Octubre 2026',
-  time: '20:00 - 04:00',
-  location: 'Estadio Nacional',
-  address: 'Av. Libertador 1234, Centro',
-  description: 'Prepárate para la experiencia audiovisual más inmersiva del año. Neon Nights reúne a los mejores DJs internacionales con una producción de luces, láseres y sonido de última generación. Únete a miles de personas para bailar hasta el amanecer.',
+  title: 'Cargando...',
+  subtitle: '',
+  date: '',
+  time: '',
+  location: '',
+  address: '',
+  description: '',
   headerImg: '/hero.png',
   posterImg: '/poster.png',
   venueMap: '/venue.png',
-  tickets: [
-    { type: 'General', price: 800 },
-    { type: 'VIP', price: 1500 },
-    { type: 'Backstage', price: 3500 }
-  ]
+  tickets: []
 })
 
 const quantity = ref(1)
-const selectedTicketType = ref(event.value.tickets[0].type)
+const selectedTicketType = ref('')
 
 const currentTicket = computed(() => {
+  if (!event.value || !event.value.tickets || event.value.tickets.length === 0) return null
   return event.value.tickets.find(t => t.type === selectedTicketType.value)
 })
 
@@ -68,9 +65,40 @@ const goToCheckout = () => {
   })
 }
 
-// Scroll to top on mount is handled by router scrollBehavior, but good to ensure
-onMounted(() => {
+onMounted(async () => {
   window.scrollTo(0, 0)
+  
+  try {
+    const apiUrl = import.meta.env.VITE_API_URL 
+      ? `${import.meta.env.VITE_API_URL}/api/events/${eventId}` 
+      : `http://localhost:3001/api/events/${eventId}`
+    const res = await fetch(apiUrl)
+    if (res.ok) {
+      const data = await res.json()
+      event.value = {
+        id: data.id,
+        title: data.name,
+        subtitle: data.artist,
+        date: data.date || '',
+        time: data.startTime || '',
+        location: data.venue || 'Por definir',
+        address: data.address || '',
+        description: data.longDescription || data.shortDescription || '',
+        headerImg: data.bannerImage || '/hero.png',
+        posterImg: data.coverImage || '/poster.png',
+        venueMap: data.mapUrl || '/venue.png',
+        tickets: (data.ticketTiers || []).map(t => ({ type: t.name, price: t.price }))
+      }
+      
+      if (event.value.tickets.length > 0) {
+        selectedTicketType.value = event.value.tickets[0].type
+      }
+    } else {
+      console.error("No se pudo obtener la información del evento de la API.")
+    }
+  } catch (error) {
+    console.error("Error al cargar detalles del evento:", error)
+  }
 })
 </script>
 
