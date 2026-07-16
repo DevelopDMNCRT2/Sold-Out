@@ -19,11 +19,13 @@ const event = ref({
   headerImg: '/hero.png',
   posterImg: '/poster.png',
   venueMap: '/venue.png',
-  tickets: []
+  tickets: [],
+  allowMultiple: false
 })
 
 const quantity = ref(1)
 const selectedTicketType = ref('')
+const selectedQuantities = ref({})
 
 const currentTicket = computed(() => {
   if (!event.value || !event.value.tickets || event.value.tickets.length === 0) return null
@@ -31,16 +33,30 @@ const currentTicket = computed(() => {
 })
 
 const priceBreakdown = computed(() => {
-  if (!currentTicket.value) return null
-  const basePrice = currentTicket.value.price * quantity.value
+  let basePrice = 0
+  let totalQty = 0
+  
+  if (event.value.allowMultiple) {
+    event.value.tickets.forEach(t => {
+      const qty = selectedQuantities.value[t.type] || 0
+      basePrice += t.price * qty
+      totalQty += qty
+    })
+  } else {
+    if (!currentTicket.value) return null
+    basePrice = currentTicket.value.price * quantity.value
+    totalQty = quantity.value
+  }
+  
+  if (totalQty === 0) return null
+  
   const serviceFee = basePrice * 0.10 // 10%
   const taxes = basePrice * 0.16 // 16% IVA
-  const subtotal = basePrice
-  const total = subtotal + serviceFee + taxes
+  const total = basePrice + serviceFee + taxes
   
   return {
-    pricePerTicket: currentTicket.value.price,
-    subtotal,
+    subtotal: basePrice,
+    totalQty,
     serviceFee,
     taxes,
     total
@@ -54,15 +70,52 @@ const formatCurrency = (amount) => {
 const increment = () => { if (quantity.value < 10) quantity.value++ }
 const decrement = () => { if (quantity.value > 1) quantity.value-- }
 
+const incrementMultiple = (type) => {
+  const current = selectedQuantities.value[type] || 0
+  if (current < 10) {
+    selectedQuantities.value[type] = current + 1
+  }
+}
+
+const decrementMultiple = (type) => {
+  const current = selectedQuantities.value[type] || 0
+  if (current > 0) {
+    selectedQuantities.value[type] = current - 1
+  }
+}
+
 const goToCheckout = () => {
-  router.push({
-    path: '/checkout',
-    query: {
-      eventId: event.value.id,
-      qty: quantity.value,
-      type: selectedTicketType.value
+  if (event.value.allowMultiple) {
+    const cart = []
+    event.value.tickets.forEach(t => {
+      const qty = selectedQuantities.value[t.type] || 0
+      if (qty > 0) {
+        cart.push({ type: t.type, qty })
+      }
+    })
+    
+    if (cart.length === 0) {
+      alert('Por favor, selecciona al menos un boleto.')
+      return
     }
-  })
+    
+    router.push({
+      path: '/checkout',
+      query: {
+        eventId: event.value.id,
+        cart: JSON.stringify(cart)
+      }
+    })
+  } else {
+    router.push({
+      path: '/checkout',
+      query: {
+        eventId: event.value.id,
+        qty: quantity.value,
+        type: selectedTicketType.value
+      }
+    })
+  }
 }
 
 onMounted(async () => {
@@ -87,11 +140,15 @@ onMounted(async () => {
         headerImg: data.bannerImage || '/hero.png',
         posterImg: data.coverImage || '/poster.png',
         venueMap: data.mapUrl || '/venue.png',
-        tickets: (data.ticketTiers || []).map(t => ({ type: t.name, price: t.price }))
+        tickets: (data.ticketTiers || []).map(t => ({ type: t.name, price: t.price })),
+        allowMultiple: data.allowMultiple || false
       }
       
       if (event.value.tickets.length > 0) {
         selectedTicketType.value = event.value.tickets[0].type
+        event.value.tickets.forEach(t => {
+          selectedQuantities.value[t.type] = 0
+        })
       }
     } else {
       console.error("No se pudo obtener la información del evento de la API.")
@@ -167,27 +224,45 @@ onMounted(async () => {
             <h3>Comprar Entradas</h3>
             
             <div class="purchase-form">
-              <div class="form-group">
-                <label for="ticketType">Tipo de Boleto</label>
-                <select id="ticketType" v-model="selectedTicketType" class="form-control">
-                  <option v-for="ticket in event.tickets" :key="ticket.type" :value="ticket.type">
-                    {{ ticket.type }} - {{ formatCurrency(ticket.price) }}
-                  </option>
-                </select>
+              <!-- MULTIPLE TICKETS MODE (allowMultiple: true) -->
+              <div v-if="event.allowMultiple" class="multiple-tickets-container">
+                <div v-for="ticket in event.tickets" :key="ticket.type" class="ticket-tier-row">
+                  <div class="ticket-tier-info">
+                    <span class="ticket-tier-name">{{ ticket.type }}</span>
+                    <span class="ticket-tier-price">{{ formatCurrency(ticket.price) }}</span>
+                  </div>
+                  <div class="quantity-selector">
+                    <button @click="decrementMultiple(ticket.type)" class="qty-btn" :disabled="!selectedQuantities[ticket.type] || selectedQuantities[ticket.type] <= 0">-</button>
+                    <span class="qty-display">{{ selectedQuantities[ticket.type] || 0 }}</span>
+                    <button @click="incrementMultiple(ticket.type)" class="qty-btn" :disabled="(selectedQuantities[ticket.type] || 0) >= 10">+</button>
+                  </div>
+                </div>
               </div>
 
-              <div class="form-group">
-                <label>Cantidad</label>
-                <div class="quantity-selector">
-                  <button @click="decrement" class="qty-btn" :disabled="quantity <= 1">-</button>
-                  <span class="qty-display">{{ quantity }}</span>
-                  <button @click="increment" class="qty-btn" :disabled="quantity >= 10">+</button>
+              <!-- SINGLE TICKET MODE (allowMultiple: false) -->
+              <div v-else class="single-ticket-container">
+                <div class="form-group">
+                  <label for="ticketType">Tipo de Boleto</label>
+                  <select id="ticketType" v-model="selectedTicketType" class="form-control">
+                    <option v-for="ticket in event.tickets" :key="ticket.type" :value="ticket.type">
+                      {{ ticket.type }} - {{ formatCurrency(ticket.price) }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label>Cantidad</label>
+                  <div class="quantity-selector">
+                    <button @click="decrement" class="qty-btn" :disabled="quantity <= 1">-</button>
+                    <span class="qty-display">{{ quantity }}</span>
+                    <button @click="increment" class="qty-btn" :disabled="quantity >= 10">+</button>
+                  </div>
                 </div>
               </div>
 
               <div class="price-breakdown" v-if="priceBreakdown">
                 <div class="breakdown-row">
-                  <span>Subtotal (x{{ quantity }})</span>
+                  <span>Subtotal (x{{ event.allowMultiple ? priceBreakdown.totalQty : quantity }})</span>
                   <span>{{ formatCurrency(priceBreakdown.subtotal) }}</span>
                 </div>
                 <div class="breakdown-row">
@@ -511,5 +586,43 @@ onMounted(async () => {
   width: 100%;
   padding: 1rem;
   font-weight: 700;
+}
+
+/* ticket-tier-row layout */
+.ticket-tier-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ticket-tier-row:last-child {
+  border-bottom: none;
+}
+
+.ticket-tier-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.ticket-tier-name {
+  font-weight: 600;
+  color: var(--color-white);
+  font-size: 0.95rem;
+}
+
+.ticket-tier-price {
+  font-size: 0.85rem;
+  color: var(--color-accent);
+  margin-top: 2px;
+}
+
+.multiple-tickets-container {
+  margin-bottom: 1.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid var(--color-gray);
 }
 </style>

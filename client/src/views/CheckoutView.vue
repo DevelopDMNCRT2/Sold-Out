@@ -19,8 +19,11 @@
             <p class="section-desc">Ingresa el nombre de cada persona que asistirá al evento. Los boletos serán nominativos.</p>
             
             <div class="attendee-list">
-              <div v-for="n in quantity" :key="n" class="form-group attendee-group">
-                <label :for="`attendee-${n}`">Nombre Asistente {{ n }}</label>
+              <div v-for="n in totalQuantity" :key="n" class="form-group attendee-group">
+                <label :for="`attendee-${n}`">
+                  Nombre Asistente {{ n }} 
+                  <span class="text-xs text-gray-500 font-normal">({{ flattenedTickets[n-1]?.type }})</span>
+                </label>
                 <input :id="`attendee-${n}`" v-model="attendees[n-1]" type="text" class="form-control" :placeholder="`Ej. Juan Pérez`" required />
               </div>
             </div>
@@ -100,10 +103,9 @@
               <p>{{ eventData ? eventData.date : '' }} <span v-if="eventData && eventData.venue">| {{ eventData.venue }}</span></p>
             </div>
 
-            <div class="summary-tickets">
-              <div class="summary-row">
-                <span>{{ quantity }}x Boleto {{ ticketType }}</span>
-                <span>{{ formatCurrency(basePrice * quantity) }}</span>
+              <div v-for="item in cartItems" :key="item.type" class="summary-row">
+                <span>{{ item.qty }}x Boleto {{ item.type }}</span>
+                <span>{{ formatCurrency(getPrice(item.type) * item.qty) }}</span>
               </div>
               <div class="summary-row text-light">
                 <span>Cargo por servicio</span>
@@ -147,12 +149,39 @@ import QRCode from 'qrcode'
 const route = useRoute()
 const router = useRouter()
 
-// Parse query params
-const quantity = computed(() => parseInt(route.query.qty) || 1)
-const ticketType = computed(() => route.query.type || 'General')
+// Parse query params (Support cart or single parameters)
+const cartItems = computed(() => {
+  if (route.query.cart) {
+    try {
+      return JSON.parse(route.query.cart)
+    } catch (e) {
+      console.error("Error al parsear el carrito:", e)
+    }
+  }
+  return [{ type: route.query.type || 'General', qty: parseInt(route.query.qty) || 1 }]
+})
+
+const totalQuantity = computed(() => {
+  return cartItems.value.reduce((sum, item) => sum + item.qty, 0)
+})
+
+const flattenedTickets = computed(() => {
+  const list = []
+  cartItems.value.forEach(item => {
+    for (let i = 0; i < item.qty; i++) {
+      list.push({ type: item.type })
+    }
+  })
+  return list
+})
 
 // Form state
-const attendees = ref(Array(quantity.value).fill(''))
+import { watch } from 'vue'
+const attendees = ref([])
+watch(totalQuantity, (newVal) => {
+  attendees.value = Array(newVal).fill('')
+}, { immediate: true })
+
 const isLoggedIn = ref(false)
 const buyerName = ref('')
 const buyerEmail = ref('')
@@ -171,10 +200,12 @@ const getPrice = (type) => {
   return 800
 }
 
-const basePrice = computed(() => getPrice(ticketType.value))
-const serviceFee = computed(() => (basePrice.value * quantity.value) * 0.10)
-const taxes = computed(() => (basePrice.value * quantity.value) * 0.16)
-const total = computed(() => (basePrice.value * quantity.value) + serviceFee.value + taxes.value)
+const basePrice = computed(() => {
+  return cartItems.value.reduce((sum, item) => sum + (getPrice(item.type) * item.qty), 0)
+})
+const serviceFee = computed(() => basePrice.value * 0.10)
+const taxes = computed(() => basePrice.value * 0.16)
+const total = computed(() => basePrice.value + serviceFee.value + taxes.value)
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount)
@@ -216,12 +247,10 @@ const processPayment = async () => {
         buyerEmail: buyerEmail.value.trim(),
         buyerPhone: buyerPhone.value.trim() || '5500000000',
         totalAmount: total.value,
-        tickets: [
-          {
-            ticketTierId: ticketType.value, // se resolverá por nombre en el backend
-            qty: quantity.value
-          }
-        ]
+        tickets: cartItems.value.map(item => ({
+          ticketTierId: item.type,
+          qty: item.qty
+        }))
       })
     })
 
@@ -255,7 +284,7 @@ const processPayment = async () => {
   })
 
   // Generar páginas del PDF único
-  for (let i = 0; i < quantity.value; i++) {
+  for (let i = 0; i < totalQuantity.value; i++) {
     // Si no es la primera página, añadir una nueva
     if (i > 0) {
       doc.addPage()
@@ -264,6 +293,9 @@ const processPayment = async () => {
     const attendeeName = attendees.value[i].trim()
     // Utilizar el ID del boleto real retornado por el backend si está disponible
     const ticketId = createdTickets[i]?.id || `TKT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+    
+    // Obtener tipo de boleto actual
+    const currentTicketType = flattenedTickets.value[i]?.type || 'General'
     
     // Fondo blanco de la hoja
     doc.setFillColor(255, 255, 255)
@@ -357,7 +389,7 @@ const processPayment = async () => {
     doc.setTextColor(139, 0, 0)
     doc.setFontSize(11)
     doc.setFont('helvetica', 'bold')
-    doc.text(ticketType.value.toUpperCase(), flyerX + 60, tY + 60)
+    doc.text(currentTicketType.toUpperCase(), flyerX + 60, tY + 60)
 
 
     // --- TALÓN DEL BOLETO (DERECHA) ---
@@ -392,7 +424,7 @@ const processPayment = async () => {
   }
 
   // Guardar el archivo PDF único
-  doc.save(`Boletos_${ticketType.value}_${quantity.value}x.pdf`)
+  doc.save(`Boletos_${eventData.value?.name || 'Evento'}_${totalQuantity.value}x.pdf`)
 
   // Enviar el PDF generado al correo del comprador vía backend (de forma no bloqueante)
   try {
