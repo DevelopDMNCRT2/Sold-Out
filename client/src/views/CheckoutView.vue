@@ -302,49 +302,65 @@ const processPayment = async () => {
     doc.rect(0, 0, 210, 297, 'F')
     
     // Header de la Hoja
-    doc.setTextColor(0, 0, 0)
-    doc.setFontSize(24)
+    doc.setTextColor(17, 24, 39) // Gray 900
+    doc.setFontSize(22)
     doc.setFont('helvetica', 'bold')
-    doc.text('TUS BOLETOS', 105, 30, { align: 'center' })
-    doc.setFontSize(10)
+    doc.text('TU BOLETO DE ACCESO', 105, 30, { align: 'center' })
+    
+    doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(100, 100, 100)
-    doc.text('Imprime este documento o muéstralo desde tu dispositivo móvil.', 105, 37, { align: 'center' })
+    doc.setTextColor(107, 114, 128) // Gray 500
+    doc.text('Presenta este boleto impreso o en tu celular al llegar al evento.', 105, 36, { align: 'center' })
+    
+    // Dibujar línea guía de corte superior
+    doc.setDrawColor(229, 231, 235) // Gray 200
+    doc.setLineDash([1, 3], 0)
+    doc.line(15, 43, 195, 43)
+    doc.setLineDash([])
 
-    // Dimensiones y coordenadas del BOLETO (Ticket de 80mm de alto)
+    // Dimensiones y coordenadas del BOLETO
     const tX = 15
     const tY = 50
     const tW = 180
     const tH = 80
-    const stubW = 55 // Ancho del talón (donde va el QR)
+    const stubW = 50
     const mainW = tW - stubW
 
-    // Sombra suave o contorno del boleto redondeado
-    doc.setDrawColor(200, 200, 200)
-    doc.setLineWidth(0.5)
-    doc.setFillColor(252, 252, 252)
+    // Cuerpo del boleto (Blanco con sombra suave simulada)
+    doc.setFillColor(255, 255, 255)
+    doc.setDrawColor(229, 231, 235) // Gray 200
+    doc.setLineWidth(0.3)
     doc.roundedRect(tX, tY, tW, tH, 3, 3, 'FD')
 
-    // Línea punteada de corte (entre ticket principal y talón)
-    doc.setDrawColor(180, 180, 180)
+    // Línea punteada de corte (entre boleto principal y talón)
+    doc.setDrawColor(156, 163, 175) // Gray 400
     doc.setLineDash([2, 2], 0)
     doc.line(tX + mainW, tY, tX + mainW, tY + tH)
-    doc.setLineDash([]) // Reset dash
+    doc.setLineDash([])
+
+    // Muescas semicirculares de boleto clásico en la línea de corte (superior e inferior)
+    doc.setFillColor(255, 255, 255)
+    doc.setDrawColor(229, 231, 235)
+    doc.ellipse(tX + mainW, tY, 3, 3, 'F')
+    doc.ellipse(tX + mainW, tY + tH, 3, 3, 'F')
+    doc.line(tX + mainW - 3, tY, tX + mainW + 3, tY)
+    doc.line(tX + mainW - 3, tY + tH, tX + mainW + 3, tY + tH)
 
     // --- SECCIÓN PRINCIPAL DEL BOLETO (IZQUIERDA) ---
-    // Branding SOLD OUT
-    doc.setFillColor(139, 0, 0) // var(--color-accent)
-    doc.rect(tX, tY, 5, tH, 'F') // Franja lateral izquierda
-    
-    doc.setTextColor(139, 0, 0)
-    doc.setFontSize(14)
+    // Franja de acento roja de la marca
+    doc.setFillColor(185, 28, 28) // Red 700
+    doc.rect(tX + 0.3, tY + 0.3, 5, tH - 0.6, 'F')
+
+    // Logo SOLD OUT
+    doc.setTextColor(185, 28, 28)
+    doc.setFontSize(13)
     doc.setFont('helvetica', 'bold')
     doc.text('SOLD OUT.', tX + 10, tY + 12)
 
-    // Flyer de evento preservando Aspect Ratio
+    // Poster del evento con Aspect Ratio
     let flyerX = tX + 10
-    let flyerY = tY + 20
-    let flyerMaxWidth = 45
+    let flyerY = tY + 18
+    let flyerMaxWidth = 40
     let flyerMaxHeight = 50
     try {
       const imgRatio = posterImg.width / posterImg.height
@@ -355,47 +371,66 @@ const processPayment = async () => {
          finalWidth = finalHeight * imgRatio
       }
       doc.addImage(posterImg, 'PNG', flyerX, flyerY + (flyerMaxHeight - finalHeight)/2, finalWidth, finalHeight)
-      flyerX += finalWidth + 8 // Mover el texto a la derecha del flyer
+      flyerX += finalWidth + 6
     } catch(e) {
-      flyerX += 50 // Si falla, dejamos espacio
+      flyerX += 46
     }
 
     // Datos del Evento
-    doc.setTextColor(0, 0, 0)
-    doc.setFontSize(16)
+    const eventName = (eventData.value ? eventData.value.name : 'EVENTO').toUpperCase()
+    doc.setTextColor(17, 24, 39)
+    doc.setFontSize(14)
     doc.setFont('helvetica', 'bold')
-    doc.text((eventData.value ? eventData.value.name : 'NEON NIGHTS FESTIVAL').toUpperCase(), flyerX, tY + 28)
     
-    doc.setFontSize(10)
+    // Truncar nombre del evento si es demasiado largo
+    const truncatedEventName = eventName.length > 25 ? eventName.substring(0, 22) + '...' : eventName
+    doc.text(truncatedEventName, flyerX, tY + 16)
+
+    // Fecha y hora
+    doc.setFontSize(8.5)
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(80, 80, 80)
-    const eventTimeStr = eventData.value && eventData.value.startTime ? ` • ${eventData.value.startTime} Hrs` : ''
-    doc.text(`${eventData.value ? eventData.value.date : '15 Oct 2026'}${eventTimeStr}`, flyerX, tY + 36)
-    doc.text(eventData.value ? eventData.value.venue : 'Estadio Nacional', flyerX, tY + 41)
+    doc.setTextColor(75, 85, 99) // Gray 600
+    const timeVal = eventData.value && eventData.value.startTime ? ` • ${eventData.value.startTime} HRS` : ''
+    const dateVal = eventData.value ? eventData.value.date : '15 OCT 2026'
+    doc.text(`${dateVal}${timeVal}`, flyerX, tY + 22)
 
-    // Datos del Cliente y Boleto
-    doc.setFontSize(8)
-    doc.setTextColor(120, 120, 120)
-    doc.text('NOMBRE DEL ASISTENTE', flyerX, tY + 54)
-    doc.setTextColor(0, 0, 0)
-    doc.setFontSize(11)
+    // Recinto (diseño tipo cápsula / tag)
+    const venueName = (eventData.value ? eventData.value.venue : 'ESTADIO NACIONAL').toUpperCase()
+    doc.setFillColor(243, 244, 246) // Gray 100
+    doc.roundedRect(flyerX, tY + 26, 68, 6, 1, 1, 'F')
+    doc.setTextColor(55, 65, 81) // Gray 700
+    doc.setFontSize(7.5)
     doc.setFont('helvetica', 'bold')
-    doc.text(attendeeName.toUpperCase(), flyerX, tY + 60)
+    doc.text(venueName.substring(0, 36), flyerX + 2.5, tY + 30.2)
 
-    doc.setFontSize(8)
+    // Separador horizontal fino
+    doc.setDrawColor(243, 244, 246)
+    doc.setLineWidth(0.2)
+    doc.line(flyerX, tY + 36, flyerX + 68, tY + 36)
+
+    // Datos del Asistente (Columna vertical limpia)
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(120, 120, 120)
-    doc.text('TIPO DE BOLETO', flyerX + 60, tY + 54)
-    doc.setTextColor(139, 0, 0)
-    doc.setFontSize(11)
+    doc.setFontSize(7.5)
+    doc.setTextColor(156, 163, 175)
+    doc.text('NOMBRE DEL ASISTENTE', flyerX, tY + 43)
+    doc.setTextColor(17, 24, 39)
+    doc.setFontSize(10.5)
     doc.setFont('helvetica', 'bold')
-    doc.text(currentTicketType.toUpperCase(), flyerX + 60, tY + 60)
+    doc.text(attendeeName.toUpperCase(), flyerX, tY + 48.5)
 
+    // Localidad (Tipo de boleto)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7.5)
+    doc.setTextColor(156, 163, 175)
+    doc.text('LOCALIDAD / ACCESO', flyerX, tY + 57)
+    doc.setTextColor(185, 28, 28)
+    doc.setFontSize(10.5)
+    doc.setFont('helvetica', 'bold')
+    doc.text(currentTicketType.toUpperCase(), flyerX, tY + 62.5)
 
-    // --- TALÓN DEL BOLETO (DERECHA) ---
-    // Título secundario
-    doc.setTextColor(0, 0, 0)
-    doc.setFontSize(10)
+    // --- SECCIÓN DERECHA: TALÓN DE CONTROL (DERECHA) ---
+    doc.setTextColor(55, 65, 81)
+    doc.setFontSize(9)
     doc.setFont('helvetica', 'bold')
     doc.text('ACCESO', tX + mainW + (stubW/2), tY + 12, { align: 'center' })
 
@@ -408,19 +443,20 @@ const processPayment = async () => {
     
     const qrSize = 35
     const qrX = tX + mainW + (stubW - qrSize) / 2
-    const qrY = tY + 20
+    const qrY = tY + 18
     doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize)
 
-    // Ticket ID
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(80, 80, 80)
-    doc.text(ticketId, tX + mainW + (stubW/2), qrY + qrSize + 6, { align: 'center' })
+    // Ticket ID abreviado de control
+    const shortId = ticketId.length > 10 ? ticketId.substring(0, 8).toUpperCase() : ticketId
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(75, 85, 99)
+    doc.text(`TKT-${shortId}`, tX + mainW + (stubW/2), qrY + qrSize + 6, { align: 'center' })
 
-    // Extra branding
-    doc.setFontSize(7)
-    doc.setTextColor(150, 150, 150)
-    doc.text('SOLD OUT PLATFORM', tX + mainW + (stubW/2), tY + tH - 5, { align: 'center' })
+    doc.setFontSize(6.5)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(156, 163, 175)
+    doc.text('SOLD OUT TICKET', tX + mainW + (stubW/2), tY + tH - 5, { align: 'center' })
   }
 
   // Guardar el archivo PDF único
