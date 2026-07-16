@@ -289,12 +289,15 @@
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Cantidad</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Total</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Fecha</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Estado</th>
                   <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Acciones</th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200 dark:bg-transparent dark:divide-gray-700">
                 <tr v-for="sale in sales" :key="sale.id">
-                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-brand-600 dark:text-brand-400">#{{ sale.id }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-brand-600 dark:text-brand-400" :title="sale.id">
+                    #{{ sale.id.substring(0, 8).toUpperCase() }}
+                  </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                     {{ sale.buyer }}
                     <span class="block text-xs text-gray-500">{{ sale.email }}</span>
@@ -305,6 +308,24 @@
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium dark:text-white">
                     {{ sale.qty }}
                   </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold dark:text-white">
+                    ${{ sale.total }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {{ sale.date }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <span 
+                      class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full"
+                      :class="{
+                        'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400': sale.status === 'Pagado',
+                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400': sale.status === 'Pendiente',
+                        'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400': sale.status === 'Rechazado' || sale.status === 'Cancelado'
+                      }"
+                    >
+                      {{ sale.status }}
+                    </span>
+                  </td>
                   <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button @click="viewOrder(sale)" class="text-gray-500 hover:text-brand-500 transition-colors" title="Ver Orden">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -312,7 +333,7 @@
                   </td>
                 </tr>
                 <tr v-if="sales.length === 0">
-                  <td colspan="7" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <td colspan="8" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                     Todavía no hay ventas para este evento.
                   </td>
                 </tr>

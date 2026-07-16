@@ -168,7 +168,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { jsPDF } from 'jspdf'
 import QRCode from 'qrcode'
@@ -293,7 +293,7 @@ const initMPBrick = async () => {
         customization: {
           visual: {
             style: {
-              theme: 'dark', // Tema oscuro premium
+              theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'default' : 'dark',
             },
           },
         },
@@ -741,6 +741,24 @@ onMounted(async () => {
       console.error("Error al cargar evento en Checkout:", error)
     }
   }
+
+  // Observe theme changes to dynamically re-initialize Mercado Pago Brick
+  if (typeof MutationObserver !== 'undefined') {
+    themeObserver = new MutationObserver(() => {
+      if (paymentMethod.value === 'mercadopago' && window.MercadoPago) {
+        initMPBrick()
+      }
+    })
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+  }
+})
+
+let themeObserver = null
+
+onUnmounted(() => {
+  if (themeObserver) {
+    themeObserver.disconnect()
+  }
 })
 </script>
 
@@ -1045,5 +1063,26 @@ label {
   color: var(--color-light-gray);
   padding: 2rem 0;
   font-style: italic;
+}
+
+/* Custom styling to force Mercado Pago Bricks elements to match SoldOut brand design */
+#cardPaymentBrick_container {
+  --mp-theme-color: var(--color-accent) !important;
+}
+
+:deep(.andes-button--primary),
+:deep(#cardPaymentBrick_container button),
+:deep(#cardPaymentBrick_container .andes-button),
+:deep(#cardPaymentBrick_container .andes-button--primary) {
+  background-color: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+  color: #ffffff !important;
+}
+
+:deep(.andes-button--primary:hover),
+:deep(#cardPaymentBrick_container button:hover),
+:deep(#cardPaymentBrick_container .andes-button:hover) {
+  background-color: #991b1b !important;
+  border-color: #991b1b !important;
 }
 </style>
