@@ -286,9 +286,19 @@ const initMPBrick = async () => {
     const mp = new window.MercadoPago(publicKey, { locale: 'es-MX' })
     const bricksBuilder = mp.bricks()
     
-    // Si ya existe un brick, lo desmontamos antes de recrear
+    // Si ya existe un brick, lo desmontamos antes de recrear de forma segura
     if (mpBrickController.value) {
-      await mpBrickController.value.unmount()
+      try {
+        await mpBrickController.value.unmount()
+      } catch (unmountError) {
+        console.warn("Error al desmontar brick anterior:", unmountError)
+      }
+    }
+    
+    // Limpiar el contenedor de cualquier nodo residual para evitar conflictos del constructor
+    const container = document.getElementById('cardPaymentBrick_container')
+    if (container) {
+      container.innerHTML = ''
     }
     
     mpBrickController.value = await bricksBuilder.create(
