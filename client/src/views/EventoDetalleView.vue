@@ -358,7 +358,7 @@ onMounted(async () => {
 .hero-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.9) 100%);
+  background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.9) 100%);
   z-index: 1;
 }
 
@@ -371,14 +371,16 @@ onMounted(async () => {
   font-family: var(--font-display);
   font-size: 3.5rem;
   font-weight: 900;
+  color: #ffffff; /* Asegurar color blanco sólido */
   text-transform: uppercase;
   margin-bottom: 0.5rem;
-  text-shadow: 2px 2px 10px rgba(0,0,0,0.8);
+  text-shadow: 0 4px 12px rgba(0,0,0,0.8); /* Sombra de texto pronunciada para contraste */
 }
 
 .event-subtitle {
   font-size: 1.2rem;
-  color: var(--color-light-gray);
+  color: rgba(255, 255, 255, 0.8); /* Color claro con leve opacidad */
+  text-shadow: 0 2px 6px rgba(0,0,0,0.8);
 }
 
 /* Main Content Grid */
