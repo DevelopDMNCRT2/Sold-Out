@@ -205,51 +205,45 @@ onMounted(async () => {
     <div class="container event-content">
       <div class="content-grid">
         
-        <!-- Left Column: Details & Venue -->
+        <!-- Left Column: Details & Info -->
         <div class="content-main">
-          
+          <!-- Poster & Info Block (Side by side on desktop) -->
+          <div class="event-main-info">
+            <div class="main-poster-wrapper">
+              <img :src="event.posterImg" :alt="event.title" />
+            </div>
+            
+            <div class="main-details-wrapper">
+              <div class="info-box-v">
+                <div class="info-item">
+                  <svg class="info-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="var(--color-accent)" viewBox="0 0 16 16"><path d="M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0z"/><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>
+                  <div>
+                    <h4>Horario</h4>
+                    <p class="font-medium">{{ event.date }}</p>
+                    <p class="text-light">{{ event.time }} Hrs</p>
+                  </div>
+                </div>
+                
+                <div class="info-item">
+                  <svg class="info-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="var(--color-accent)" viewBox="0 0 16 16"><path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
+                  <div>
+                    <h4>Ubicación</h4>
+                    <p class="font-medium">{{ event.location }}</p>
+                    <p class="text-light">{{ event.address }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="detail-section">
             <h2 class="section-title">Sobre el Evento</h2>
             <p class="event-description">{{ event.description }}</p>
           </div>
-
-          <div class="detail-section info-grid">
-            <div class="info-box">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="var(--color-accent)" viewBox="0 0 16 16"><path d="M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0z"/><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>
-              <div>
-                <h4>Horario</h4>
-                <p>{{ event.date }}</p>
-                <p class="text-light">{{ event.time }}</p>
-              </div>
-            </div>
-            
-            <div class="info-box">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="var(--color-accent)" viewBox="0 0 16 16"><path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
-              <div>
-                <h4>Ubicación</h4>
-                <p>{{ event.location }}</p>
-                <p class="text-light">{{ event.address }}</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="detail-section">
-            <h2 class="section-title">Croquis del Lugar</h2>
-            <div class="venue-map">
-              <img :src="event.venueMap" alt="Croquis del recinto" />
-            </div>
-          </div>
-
         </div>
 
-        <!-- Right Column: Tickets & Poster -->
+        <!-- Right Column: Purchase Form -->
         <div class="content-sidebar">
-          
-          <!-- Poster -->
-          <div class="poster-wrapper">
-            <img :src="event.posterImg" :alt="event.title" class="event-poster" />
-          </div>
-
           <!-- Tickets Module -->
           <div class="tickets-module">
             <h3>Comprar Entradas</h3>
@@ -423,77 +417,87 @@ onMounted(async () => {
   color: var(--color-light-gray);
 }
 
-.info-grid {
-  display: grid;
-  grid-template-columns: 1fr;
+.event-main-info {
+  display: flex;
+  flex-direction: column;
   gap: 2rem;
-  background-color: var(--color-dark-gray);
-  padding: 2rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-gray);
+  margin-bottom: 3rem;
 }
 
 @media (min-width: 768px) {
-  .info-grid {
-    grid-template-columns: 1fr 1fr;
+  .event-main-info {
+    flex-direction: row;
+    align-items: stretch;
   }
 }
 
-.info-box {
+.main-poster-wrapper {
+  flex: 0 0 280px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  border: 1px solid var(--color-gray);
+  height: 380px;
+}
+
+.main-poster-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.main-details-wrapper {
+  flex: 1;
   display: flex;
-  gap: 1.5rem;
+  flex-direction: column;
 }
 
-.info-box svg {
+.info-box-v {
+  background-color: var(--color-dark-gray);
+  padding: 2.5rem 2rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-gray);
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  height: 100%;
+  justify-content: center;
+}
+
+.info-item {
+  display: flex;
+  gap: 1.2rem;
+}
+
+.info-icon {
   flex-shrink: 0;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
-.info-box h4 {
-  font-size: 1.2rem;
-  margin-bottom: 0.5rem;
+.info-item h4 {
+  font-size: 1.15rem;
+  margin-bottom: 0.3rem;
+  color: var(--color-white);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-item p {
+  margin-bottom: 0.2rem;
+  font-size: 0.95rem;
   color: var(--color-white);
 }
 
-.info-box p {
-  margin-bottom: 0.2rem;
-  font-size: 1rem;
-}
-
-.text-light {
+.info-item .text-light {
   color: var(--color-light-gray);
-}
-
-.venue-map {
-  width: 100%;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 2px solid var(--color-gray);
-}
-
-.venue-map img {
-  width: 100%;
-  height: auto;
-  display: block;
 }
 
 /* Sidebar */
 .content-sidebar {
   position: sticky;
   top: 100px;
-}
-
-.poster-wrapper {
-  margin-bottom: 2rem;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-  border: 1px solid var(--color-gray);
-}
-
-.event-poster {
-  width: 100%;
-  display: block;
 }
 
 .tickets-module {
