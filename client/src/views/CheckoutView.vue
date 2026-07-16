@@ -253,6 +253,17 @@ const setPaymentMethod = (method) => {
 // Carga dinámica del SDK de Mercado Pago
 const loadMercadoPago = () => {
   isMpLoading.value = true
+  
+  // Set a timeout to notify about potential ad-blocker blocks
+  setTimeout(() => {
+    if (isMpLoading.value && paymentMethod.value === 'mercadopago') {
+      const msg = document.querySelector('.mp-loading')
+      if (msg) {
+        msg.innerHTML = `Cargando pasarela de pago... <br><span style="font-size: 0.8rem; color: #f87171; display: block; margin-top: 0.5rem; font-weight: bold;">¿Tarda demasiado? Por favor revisa si tienes algún AdBlocker o Brave Shield activado que esté bloqueando el script de seguridad de Mercado Pago.</span>`
+      }
+    }
+  }, 4000)
+
   if (window.MercadoPago) {
     initMPBrick()
     return
