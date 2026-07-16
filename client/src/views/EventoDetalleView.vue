@@ -67,12 +67,23 @@ const formatCurrency = (amount) => {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount)
 }
 
-const increment = () => { if (quantity.value < 10) quantity.value++ }
+const maxAvailable = computed(() => {
+  if (!currentTicket.value) return 0
+  return Math.max(0, currentTicket.value.stock - currentTicket.value.sold)
+})
+
+const increment = () => { 
+  if (quantity.value < Math.min(10, maxAvailable.value)) {
+    quantity.value++ 
+  } 
+}
 const decrement = () => { if (quantity.value > 1) quantity.value-- }
 
 const incrementMultiple = (type) => {
+  const ticket = event.value.tickets.find(t => t.type === type)
   const current = selectedQuantities.value[type] || 0
-  if (current < 10) {
+  const max = ticket ? Math.max(0, ticket.stock - ticket.sold) : 0
+  if (current < Math.min(10, max)) {
     selectedQuantities.value[type] = current + 1
   }
 }
@@ -83,6 +94,20 @@ const decrementMultiple = (type) => {
     selectedQuantities.value[type] = current - 1
   }
 }
+
+// Watch selected type to adapt quantity to stock limits
+import { watch } from 'vue'
+watch(selectedTicketType, (newType) => {
+  const ticket = event.value.tickets.find(t => t.type === newType)
+  const max = ticket ? Math.max(0, ticket.stock - ticket.sold) : 0
+  if (max === 0) {
+    quantity.value = 0
+  } else if (quantity.value > max) {
+    quantity.value = max
+  } else if (quantity.value === 0 && max > 0) {
+    quantity.value = 1
+  }
+})
 
 const goToCheckout = () => {
   if (event.value.allowMultiple) {
@@ -140,7 +165,7 @@ onMounted(async () => {
         headerImg: data.bannerImage || '/hero.png',
         posterImg: data.coverImage || '/poster.png',
         venueMap: data.mapUrl || '/venue.png',
-        tickets: (data.ticketTiers || []).map(t => ({ type: t.name, price: t.price })),
+        tickets: (data.ticketTiers || []).map(t => ({ type: t.name, price: t.price, stock: t.stock, sold: t.sold })),
         allowMultiple: data.allowMultiple || false
       }
       
@@ -232,9 +257,12 @@ onMounted(async () => {
                     <span class="ticket-tier-price">{{ formatCurrency(ticket.price) }}</span>
                   </div>
                   <div class="quantity-selector">
-                    <button @click="decrementMultiple(ticket.type)" class="qty-btn" :disabled="!selectedQuantities[ticket.type] || selectedQuantities[ticket.type] <= 0">-</button>
-                    <span class="qty-display">{{ selectedQuantities[ticket.type] || 0 }}</span>
-                    <button @click="incrementMultiple(ticket.type)" class="qty-btn" :disabled="(selectedQuantities[ticket.type] || 0) >= 10">+</button>
+                    <span v-if="ticket.stock - ticket.sold <= 0" class="text-xs text-red-500 font-semibold uppercase tracking-wider py-2">Agotado</span>
+                    <template v-else>
+                      <button @click="decrementMultiple(ticket.type)" class="qty-btn" :disabled="!selectedQuantities[ticket.type] || selectedQuantities[ticket.type] <= 0">-</button>
+                      <span class="qty-display">{{ selectedQuantities[ticket.type] || 0 }}</span>
+                      <button @click="incrementMultiple(ticket.type)" class="qty-btn" :disabled="(selectedQuantities[ticket.type] || 0) >= Math.min(10, ticket.stock - ticket.sold)">+</button>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -244,8 +272,8 @@ onMounted(async () => {
                 <div class="form-group">
                   <label for="ticketType">Tipo de Boleto</label>
                   <select id="ticketType" v-model="selectedTicketType" class="form-control">
-                    <option v-for="ticket in event.tickets" :key="ticket.type" :value="ticket.type">
-                      {{ ticket.type }} - {{ formatCurrency(ticket.price) }}
+                    <option v-for="ticket in event.tickets" :key="ticket.type" :value="ticket.type" :disabled="ticket.stock - ticket.sold <= 0">
+                      {{ ticket.type }} - {{ formatCurrency(ticket.price) }} {{ ticket.stock - ticket.sold <= 0 ? '(Agotado)' : `(${ticket.stock - ticket.sold} disponibles)` }}
                     </option>
                   </select>
                 </div>
@@ -253,9 +281,12 @@ onMounted(async () => {
                 <div class="form-group">
                   <label>Cantidad</label>
                   <div class="quantity-selector">
-                    <button @click="decrement" class="qty-btn" :disabled="quantity <= 1">-</button>
-                    <span class="qty-display">{{ quantity }}</span>
-                    <button @click="increment" class="qty-btn" :disabled="quantity >= 10">+</button>
+                    <span v-if="maxAvailable <= 0" class="text-sm text-red-500 font-semibold uppercase tracking-wider py-2">Agotado</span>
+                    <template v-else>
+                      <button @click="decrement" class="qty-btn" :disabled="quantity <= 1">-</button>
+                      <span class="qty-display">{{ quantity }}</span>
+                      <button @click="increment" class="qty-btn" :disabled="quantity >= Math.min(10, maxAvailable)">+</button>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -280,7 +311,13 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <button class="btn btn-primary btn-block purchase-btn" @click="goToCheckout">Proceder al Pago</button>
+              <button 
+                class="btn btn-primary btn-block purchase-btn" 
+                :disabled="event.allowMultiple ? (!priceBreakdown || priceBreakdown.totalQty <= 0) : (maxAvailable <= 0)" 
+                @click="goToCheckout"
+              >
+                {{ (event.allowMultiple ? (priceBreakdown && priceBreakdown.totalQty > 0 ? 'Proceder al Pago' : 'Selecciona boletos') : (maxAvailable <= 0 ? 'Agotado' : 'Proceder al Pago')) }}
+              </button>
             </div>
 
           </div>

@@ -100,6 +100,14 @@ router.post('/', async (req, res) => {
         });
       }
 
+      // Validar stock disponible
+      const remainingStock = tier.stock - tier.sold;
+      if (item.qty > remainingStock) {
+        return res.status(400).json({
+          error: `No hay suficiente stock para la localidad "${tier.name}". Solo quedan ${remainingStock} boletos disponibles.`
+        });
+      }
+
       tierUpdates[tier.id] = (tierUpdates[tier.id] || 0) + item.qty;
 
       for (let i = 0; i < item.qty; i++) {
