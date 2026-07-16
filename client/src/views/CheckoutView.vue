@@ -323,140 +323,177 @@ const processPayment = async () => {
     const tY = 50
     const tW = 180
     const tH = 80
-    const stubW = 50
+    const stubW = 48 // Ancho del talón de acceso
     const mainW = tW - stubW
 
-    // Cuerpo del boleto (Blanco con sombra suave simulada)
-    doc.setFillColor(255, 255, 255)
-    doc.setDrawColor(229, 231, 235) // Gray 200
+    // Cuerpo del boleto con bordes redondeados en rojo para la franja lateral izquierda
+    doc.setFillColor(185, 28, 28) // Rojo de la marca
+    doc.setDrawColor(229, 231, 235) // Borde gris claro
     doc.setLineWidth(0.3)
-    doc.roundedRect(tX, tY, tW, tH, 3, 3, 'FD')
+    doc.roundedRect(tX, tY, tW, tH, 4, 4, 'FD')
+
+    // Tapar la parte derecha con un rectángulo blanco para dejar solo la franja lateral izquierda roja
+    doc.setFillColor(255, 255, 255)
+    doc.rect(tX + 10, tY + 0.3, tW - 10.3, tH - 0.6, 'F')
+
+    // Volver a dibujar el contorno redondeado del boleto (solo borde) para que quede perfecto
+    doc.setDrawColor(229, 231, 235)
+    doc.setLineWidth(0.3)
+    doc.roundedRect(tX, tY, tW, tH, 4, 4, 'D')
 
     // Línea punteada de corte (entre boleto principal y talón)
-    doc.setDrawColor(156, 163, 175) // Gray 400
-    doc.setLineDash([2, 2], 0)
+    doc.setDrawColor(209, 213, 219)
+    doc.setLineDash([1.5, 2.5], 0)
     doc.line(tX + mainW, tY, tX + mainW, tY + tH)
     doc.setLineDash([])
 
-    // Muescas semicirculares de boleto clásico en la línea de corte (superior e inferior)
+    // Muescas semicirculares de boleto clásico en la línea de corte
     doc.setFillColor(255, 255, 255)
     doc.setDrawColor(229, 231, 235)
-    doc.ellipse(tX + mainW, tY, 3, 3, 'F')
-    doc.ellipse(tX + mainW, tY + tH, 3, 3, 'F')
-    doc.line(tX + mainW - 3, tY, tX + mainW + 3, tY)
-    doc.line(tX + mainW - 3, tY + tH, tX + mainW + 3, tY + tH)
+    doc.ellipse(tX + mainW, tY, 3.5, 3.5, 'FD')
+    doc.ellipse(tX + mainW, tY + tH, 3.5, 3.5, 'FD')
 
-    // --- SECCIÓN PRINCIPAL DEL BOLETO (IZQUIERDA) ---
-    // Franja de acento roja de la marca
-    doc.setFillColor(185, 28, 28) // Red 700
-    doc.rect(tX + 0.3, tY + 0.3, 5, tH - 0.6, 'F')
-
-    // Logo SOLD OUT
-    doc.setTextColor(185, 28, 28)
-    doc.setFontSize(13)
+    // --- TEXTO VERTICAL EN LA FRANJA IZQUIERDA (SOLD OUT.) ---
+    doc.saveGraphicsState()
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
-    doc.text('SOLD OUT.', tX + 10, tY + 12)
+    doc.text('SOLD OUT.', tX + 6.5, tY + 54, { angle: 90 })
+    doc.restoreGraphicsState()
 
-    // Poster del evento con Aspect Ratio
-    let flyerX = tX + 10
-    let flyerY = tY + 18
-    let flyerMaxWidth = 40
-    let flyerMaxHeight = 50
+    // --- PORTADA/FLYER DEL EVENTO ---
+    let flyerX = tX + 14
+    let flyerY = tY + 12
+    let flyerWidth = 36
+    let flyerHeight = 56
     try {
-      const imgRatio = posterImg.width / posterImg.height
-      let finalWidth = flyerMaxWidth
-      let finalHeight = finalWidth / imgRatio
-      if (finalHeight > flyerMaxHeight) {
-         finalHeight = flyerMaxHeight
-         finalWidth = finalHeight * imgRatio
-      }
-      doc.addImage(posterImg, 'PNG', flyerX, flyerY + (flyerMaxHeight - finalHeight)/2, finalWidth, finalHeight)
-      flyerX += finalWidth + 6
+      doc.addImage(posterImg, 'PNG', flyerX, flyerY, flyerWidth, flyerHeight)
+      
+      // Dibujar borde decorativo redondeado para simular las esquinas de la portada
+      doc.setDrawColor(229, 231, 235)
+      doc.setLineWidth(0.2)
+      doc.roundedRect(flyerX, flyerY, flyerWidth, flyerHeight, 1.5, 1.5, 'D')
     } catch(e) {
-      flyerX += 46
+      console.error("Error al renderizar poster en PDF:", e.message)
     }
 
-    // Datos del Evento
+    // --- COLUMNA DE DATOS DEL EVENTO (DERECHA DEL POSTER) ---
+    const infoX = flyerX + flyerWidth + 6
+
+    // Etiqueta EVENTO
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(156, 163, 175) // Gray 400
+    doc.text('EVENTO', infoX, tY + 15)
+
+    // Nombre del evento
     const eventName = (eventData.value ? eventData.value.name : 'EVENTO').toUpperCase()
-    doc.setTextColor(17, 24, 39)
-    doc.setFontSize(14)
+    doc.setFontSize(13)
     doc.setFont('helvetica', 'bold')
-    
-    // Truncar nombre del evento si es demasiado largo
+    doc.setTextColor(17, 24, 39) // Gray 900
     const truncatedEventName = eventName.length > 25 ? eventName.substring(0, 22) + '...' : eventName
-    doc.text(truncatedEventName, flyerX, tY + 16)
+    doc.text(truncatedEventName, infoX, tY + 21)
 
-    // Fecha y hora
+    // Fecha y Hora alineadas horizontalmente
     doc.setFontSize(8.5)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(75, 85, 99) // Gray 600
-    const timeVal = eventData.value && eventData.value.startTime ? ` • ${eventData.value.startTime} HRS` : ''
-    const dateVal = eventData.value ? eventData.value.date : '15 OCT 2026'
-    doc.text(`${dateVal}${timeVal}`, flyerX, tY + 22)
-
-    // Recinto (diseño tipo cápsula / tag)
-    const venueName = (eventData.value ? eventData.value.venue : 'ESTADIO NACIONAL').toUpperCase()
-    doc.setFillColor(243, 244, 246) // Gray 100
-    doc.roundedRect(flyerX, tY + 26, 68, 6, 1, 1, 'F')
+    doc.setFont('helvetica', 'bold')
     doc.setTextColor(55, 65, 81) // Gray 700
-    doc.setFontSize(7.5)
-    doc.setFont('helvetica', 'bold')
-    doc.text(venueName.substring(0, 36), flyerX + 2.5, tY + 30.2)
+    const dateVal = eventData.value ? eventData.value.date : '15 OCT 2026'
+    const timeVal = eventData.value && eventData.value.startTime ? eventData.value.startTime : '20:00'
+    doc.text(`${dateVal}       |       ${timeVal} HRS`, infoX, tY + 29)
 
-    // Separador horizontal fino
+    // Recinto / Lugar
+    const venueName = (eventData.value ? eventData.value.venue : 'ESTADIO NACIONAL').toUpperCase()
+    doc.setFontSize(8.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(55, 65, 81)
+    doc.text(venueName, infoX, tY + 36)
+
+    // Línea separadora horizontal fina
     doc.setDrawColor(243, 244, 246)
-    doc.setLineWidth(0.2)
-    doc.line(flyerX, tY + 36, flyerX + 68, tY + 36)
+    doc.setLineWidth(0.3)
+    doc.line(infoX, tY + 41, tX + mainW - 6, tY + 41)
 
-    // Datos del Asistente (Columna vertical limpia)
-    doc.setFont('helvetica', 'normal')
+    // --- DATOS DEL ASISTENTE Y BOLETO (CUADRÍCULA 2x2) ---
+    const colW = 34 // Ancho de columnas del grid
+
+    // Fila 1: Asistente & Acceso
+    // Col 1: Asistente
     doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'bold')
     doc.setTextColor(156, 163, 175)
-    doc.text('NOMBRE DEL ASISTENTE', flyerX, tY + 43)
+    doc.text('ASISTENTE', infoX, tY + 47)
+    doc.setFontSize(9.5)
     doc.setTextColor(17, 24, 39)
-    doc.setFontSize(10.5)
-    doc.setFont('helvetica', 'bold')
-    doc.text(attendeeName.toUpperCase(), flyerX, tY + 48.5)
+    doc.text(attendeeName.toUpperCase(), infoX, tY + 52)
 
-    // Localidad (Tipo de boleto)
-    doc.setFont('helvetica', 'normal')
+    // Col 2: Acceso
     doc.setFontSize(7.5)
-    doc.setTextColor(156, 163, 175)
-    doc.text('LOCALIDAD / ACCESO', flyerX, tY + 57)
-    doc.setTextColor(185, 28, 28)
-    doc.setFontSize(10.5)
     doc.setFont('helvetica', 'bold')
-    doc.text(currentTicketType.toUpperCase(), flyerX, tY + 62.5)
+    doc.setTextColor(156, 163, 175)
+    doc.text('ACCESO', infoX + colW, tY + 47)
+    doc.setFontSize(9.5)
+    doc.setTextColor(17, 24, 39)
+    doc.text(currentTicketType.toUpperCase(), infoX + colW, tY + 52)
+
+    // Fila 2: Código & Tipo
+    // Col 1: Código de Boleto
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(156, 163, 175)
+    doc.text('CÓDIGO DE BOLETO', infoX, tY + 61)
+    doc.setFontSize(9.5)
+    doc.setTextColor(17, 24, 39)
+    const shortId = ticketId.length > 10 ? ticketId.substring(0, 8).toUpperCase() : ticketId
+    doc.text(`TKT-${shortId}`, infoX, tY + 66)
+
+    // Col 2: Tipo de Boleto
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(156, 163, 175)
+    doc.text('TIPO DE BOLETO', infoX + colW, tY + 61)
+    doc.setFontSize(9.5)
+    doc.setTextColor(185, 28, 28) // Rojo acento
+    doc.text(`ACCESO ${currentTicketType.toUpperCase()}`, infoX + colW, tY + 66)
 
     // --- SECCIÓN DERECHA: TALÓN DE CONTROL (DERECHA) ---
-    doc.setTextColor(55, 65, 81)
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
-    doc.text('ACCESO', tX + mainW + (stubW/2), tY + 12, { align: 'center' })
+    const stubX = tX + mainW
 
-    // Código QR
+    // Texto ACCESO arriba
+    doc.setTextColor(75, 85, 99)
+    doc.setFontSize(8.5)
+    doc.setFont('helvetica', 'bold')
+    doc.text('ACCESO', stubX + (stubW/2), tY + 12, { align: 'center' })
+
+    // Generar y dibujar código QR
     const qrDataUrl = await QRCode.toDataURL(ticketId, {
       color: { dark: '#000000', light: '#ffffff' },
       width: 120,
       margin: 0
     })
-    
-    const qrSize = 35
-    const qrX = tX + mainW + (stubW - qrSize) / 2
-    const qrY = tY + 18
+    const qrSize = 28
+    const qrX = stubX + (stubW - qrSize) / 2
+    const qrY = tY + 17
     doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize)
 
-    // Ticket ID abreviado de control
-    const shortId = ticketId.length > 10 ? ticketId.substring(0, 8).toUpperCase() : ticketId
+    // ID del Boleto debajo del QR
     doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
-    doc.setTextColor(75, 85, 99)
-    doc.text(`TKT-${shortId}`, tX + mainW + (stubW/2), qrY + qrSize + 6, { align: 'center' })
+    doc.setTextColor(17, 24, 39)
+    doc.text(`TKT-${shortId}`, stubX + (stubW/2), qrY + qrSize + 5, { align: 'center' })
 
-    doc.setFontSize(6.5)
-    doc.setFont('helvetica', 'normal')
+    // Banner decorativo de instrucción de uso al fondo del talón
+    const bannerY = tY + 61
+    const bannerH = tH - 61 - 0.3
+    doc.setFillColor(249, 250, 251) // Gris muy claro
+    doc.rect(stubX + 0.3, bannerY, stubW - 0.6, bannerH, 'F')
+
+    // Texto del banner instruccional
+    doc.setFontSize(5.5)
+    doc.setFont('helvetica', 'bold')
     doc.setTextColor(156, 163, 175)
-    doc.text('SOLD OUT TICKET', tX + mainW + (stubW/2), tY + tH - 5, { align: 'center' })
+    doc.text('PRESENTA ESTE BOLETO', stubX + (stubW/2), bannerY + 5, { align: 'center' })
+    doc.text('IMPRESO O EN TU CELULAR', stubX + (stubW/2), bannerY + 8, { align: 'center' })
   }
 
   // Guardar el archivo PDF único
