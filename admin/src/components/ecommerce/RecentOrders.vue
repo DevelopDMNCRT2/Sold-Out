@@ -41,6 +41,11 @@
               <p class="text-gray-500 text-theme-sm dark:text-gray-400">{{ event.income }}</p>
             </td>
           </tr>
+          <tr v-if="topEvents.length === 0">
+            <td colspan="3" class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+              No hay ventas registradas aún.
+            </td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -48,18 +53,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-
-const topEvents = ref([
-  {
-    name: 'BLNKO GDL',
-    tickets: 850,
-    income: '$680,000',
-  },
-  {
-    name: 'Festival XYZ',
-    tickets: 500,
-    income: '$400,000',
-  },
-])
+defineProps({
+  topEvents: {
+    type: Array,
+    required: true
+  }
+})
 </script>

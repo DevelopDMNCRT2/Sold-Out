@@ -45,6 +45,93 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Obtener estadísticas del dashboard
+router.get('/dashboard/stats', async (req, res) => {
+  try {
+    // 1. Ingresos Totales
+    const orders = await prisma.order.findMany({
+      where: { status: 'Pagado' }
+    });
+    const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+
+    // 2. Boletos Vendidos
+    const totalTickets = await prisma.ticket.count({
+      where: { order: { status: 'Pagado' } }
+    });
+
+    // 3. Eventos Activos
+    const activeEvents = await prisma.event.count({
+      where: { status: 'Publicado' }
+    });
+
+    // 4. Clientes
+    const totalCustomers = await prisma.customer.count();
+
+    // 5. Top Eventos
+    const events = await prisma.event.findMany({
+      include: {
+        orders: {
+          where: { status: 'Pagado' },
+          include: { tickets: true }
+        }
+      }
+    });
+
+    const mappedEvents = events.map(e => {
+      const ticketsCount = e.orders.reduce((sum, o) => sum + o.tickets.length, 0);
+      const incomeVal = e.orders.reduce((sum, o) => sum + o.totalAmount, 0);
+      return {
+        name: e.name,
+        tickets: ticketsCount,
+        income: `$${incomeVal.toLocaleString('es-MX')}`
+      };
+    });
+
+    const topEvents = mappedEvents
+      .sort((a, b) => b.tickets - a.tickets)
+      .slice(0, 5);
+
+    // 6. Datos de la gráfica por mes del año actual
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const chartTickets = Array(12).fill(0);
+    const chartIncome = Array(12).fill(0);
+    
+    const currentYear = new Date().getFullYear();
+    const allOrders = await prisma.order.findMany({
+      where: {
+        status: 'Pagado',
+        purchaseDate: {
+          gte: new Date(`${currentYear}-01-01T00:00:00.000Z`),
+          lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
+        }
+      },
+      include: { tickets: true }
+    });
+
+    for (const order of allOrders) {
+      const monthIndex = new Date(order.purchaseDate).getMonth();
+      chartTickets[monthIndex] += order.tickets.length;
+      chartIncome[monthIndex] += Math.round(order.totalAmount);
+    }
+
+    res.json({
+      totalRevenue: `$${Math.round(totalRevenue).toLocaleString('es-MX')}`,
+      totalTickets: totalTickets.toLocaleString('es-MX'),
+      activeEvents: activeEvents.toLocaleString('es-MX'),
+      totalCustomers: totalCustomers.toLocaleString('es-MX'),
+      topEvents,
+      chartData: {
+        categories: months,
+        tickets: chartTickets,
+        income: chartIncome
+      }
+    });
+  } catch (error) {
+    console.error("Error al obtener estadísticas del dashboard:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Obtener un evento por ID
 router.get('/:id', async (req, res) => {
   try {

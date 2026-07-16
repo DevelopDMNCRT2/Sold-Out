@@ -25,28 +25,35 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed } from 'vue'
 import { DollarSignIcon, TicketIcon, CalendarIcon, UsersIcon } from 'lucide-vue-next'
 
-const metrics = ref([
+const props = defineProps({
+  stats: {
+    type: Object,
+    required: true
+  }
+})
+
+const metrics = computed(() => [
   {
     title: 'Ingresos Totales',
-    value: '$1,200,000',
+    value: props.stats.totalRevenue || '$0',
     icon: DollarSignIcon,
   },
   {
     title: 'Boletos Vendidos',
-    value: '3,450',
+    value: props.stats.totalTickets || '0',
     icon: TicketIcon,
   },
   {
     title: 'Eventos Activos',
-    value: '12',
+    value: props.stats.activeEvents || '0',
     icon: CalendarIcon,
   },
   {
     title: 'Clientes',
-    value: '850',
+    value: props.stats.totalCustomers || '0',
     icon: UsersIcon,
   },
 ])

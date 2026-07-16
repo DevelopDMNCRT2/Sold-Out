@@ -69,9 +69,16 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import flatPickr from 'vue-flatpickr-component'
 import { Spanish } from 'flatpickr/dist/l10n/es.js'
+
+const props = defineProps({
+  chartData: {
+    type: Object,
+    required: true
+  }
+})
 
 const options = [
   { value: 'optionOne', label: 'Mensual' },
@@ -90,14 +97,14 @@ const flatpickrConfig = {
 }
 import VueApexCharts from 'vue3-apexcharts'
 
-const series = ref([
+const series = computed(() => [
   {
     name: 'Boletos',
-    data: [180, 190, 170, 160, 175, 165, 170, 205, 230, 210, 240, 235],
+    data: props.chartData?.tickets || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   },
   {
     name: 'Ingresos',
-    data: [40, 30, 50, 40, 55, 40, 70, 100, 110, 120, 150, 140],
+    data: props.chartData?.income || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   },
 ])
 
