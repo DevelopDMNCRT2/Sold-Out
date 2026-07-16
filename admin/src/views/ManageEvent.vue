@@ -242,6 +242,8 @@
         </ComponentCard>
       </div>
 
+    </fieldset>
+
       <!-- TAB 4: VENTAS (Only visible in edit mode) -->
       <div v-if="currentTab === 'ventas'" class="space-y-6">
         
@@ -342,6 +344,8 @@
           </div>
         </ComponentCard>
       </div>
+
+    <fieldset :disabled="isReadOnly" class="contents">
 
       <!-- TAB 5: CONFIGURACIÓN -->
       <div v-if="currentTab === 'configuracion'" class="max-w-2xl">
