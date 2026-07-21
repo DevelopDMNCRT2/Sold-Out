@@ -26,31 +26,26 @@
             </qrcode-stream>
 
             <!-- Overlay de Éxito -->
-            <div v-if="scanResult === 'success'" class="absolute inset-0 bg-success-500/90 flex flex-col items-center justify-center text-white z-10 animate-fade-in">
+            <div v-if="scanResult === 'success'" class="absolute inset-0 bg-success-500/90 flex flex-col items-center justify-center text-white z-10 animate-fade-in p-6 text-center">
               <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-4"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
               <h2 class="text-4xl font-bold mb-2">¡Acceso Concedido!</h2>
-              <p class="text-xl">Boleto válido</p>
+              <p class="text-xl font-semibold">{{ lastScanDetails.buyerName }}</p>
+              <p class="text-base opacity-90">{{ lastScanDetails.tierName }}</p>
             </div>
 
             <!-- Overlay de Error -->
-            <div v-if="scanResult === 'error'" class="absolute inset-0 bg-error-500/90 flex flex-col items-center justify-center text-white z-10 animate-fade-in">
+            <div v-if="scanResult === 'error'" class="absolute inset-0 bg-error-500/90 flex flex-col items-center justify-center text-white z-10 animate-fade-in p-6 text-center">
               <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-4"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
               <h2 class="text-4xl font-bold mb-2">¡Boleto Inválido!</h2>
-              <p class="text-xl">Ya escaneado o falso</p>
+              <p class="text-xl font-medium">{{ errorMessage }}</p>
             </div>
             
             <!-- Overlay de Error de Cámara -->
             <div v-if="cameraError" class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white z-10 p-6 text-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-4 text-error-500"><path d="M2 12h20"/><path d="M20 12v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8"/><path d="m4 8 16-4"/><path d="m8.86 6.78-.45-1.81a2 2 0 0 0-2.41-1.46L4.06 4.05"/><path d="m15.14 6.78.45-1.81a2 2 0 0 1 2.41-1.46l1.94.54"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-4 text-error-500"><path d="M2 12h20"/><path d="M20 12v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8"/><path d="m4 8 16-4"/></svg>
               <h2 class="text-xl font-bold text-error-400 mb-2">Error de cámara</h2>
               <p class="text-gray-300 text-sm">{{ cameraError }}</p>
             </div>
-          </div>
-          
-          <div class="mt-6 flex justify-center">
-             <p class="text-sm text-gray-500 dark:text-gray-400 text-center max-w-md">
-               Apunta la cámara al código QR del boleto. El escaneo y validación ocurrirán automáticamente.
-             </p>
           </div>
         </ComponentCard>
       </div>
@@ -77,7 +72,7 @@
                   {{ scan.valid ? 'Boleto Válido' : 'Boleto Inválido' }}
                 </p>
                 <p class="text-xs text-gray-500 truncate mt-0.5">
-                  ID: {{ scan.data }}
+                  {{ scan.data }}
                 </p>
                 <p class="text-[10px] text-gray-400 mt-1 uppercase tracking-wider font-medium">
                   {{ scan.time }}
@@ -107,7 +102,9 @@ import api from "@/services/api";
 
 const loading = ref(false);
 const isPaused = ref(false);
-const scanResult = ref(null); // 'success' | 'error' | null
+const scanResult = ref(null);
+const errorMessage = ref("");
+const lastScanDetails = ref({ buyerName: '', tierName: '' });
 const cameraError = ref("");
 const scanHistory = ref([]);
 
@@ -117,7 +114,6 @@ const cameraBorderClass = computed(() => {
   return 'border-gray-800 dark:border-gray-700';
 });
 
-// Sound effects (optional, if we had assets, but we can use browser audio context or just rely on visual)
 const playBeep = (success) => {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -139,25 +135,27 @@ const playBeep = (success) => {
     osc.start();
     osc.stop(ctx.currentTime + 0.3);
   } catch (e) {
-    // Audio context not supported or blocked
+    // Audio context no soportado
   }
 };
 
 const onDetect = async (detectedCodes) => {
-  if (scanResult.value !== null) return; // Prevent multiple scans while showing result
+  if (scanResult.value !== null) return;
   
   const content = detectedCodes[0]?.rawValue;
   if (!content) return;
   
-  // Pause scanning temporarily
   isPaused.value = true;
   
   try {
     const response = await api.post('/orders/validate', { qrCode: content });
     scanResult.value = 'success';
+    lastScanDetails.value = {
+      buyerName: response.data.ticket.buyerName,
+      tierName: response.data.ticket.tierName
+    };
     playBeep(true);
     
-    // Add to history
     const now = new Date();
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     
@@ -168,24 +166,24 @@ const onDetect = async (detectedCodes) => {
     });
   } catch (error) {
     scanResult.value = 'error';
+    const errText = error.response?.data?.message || 'Boleto Inválido';
+    errorMessage.value = errText;
     playBeep(false);
     
     const now = new Date();
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     
     scanHistory.value.unshift({
-      data: error.response?.data?.message || 'Boleto Inválido',
+      data: errText,
       valid: false,
       time: timeString
     });
   }
   
-  // Keep max 10 in history
   if (scanHistory.value.length > 10) {
     scanHistory.value.pop();
   }
   
-  // Resume after 2 seconds
   setTimeout(() => {
     scanResult.value = null;
     isPaused.value = false;
@@ -199,7 +197,7 @@ const paintBoundingBox = (detectedCodes, ctx) => {
     } = detectedCode;
 
     ctx.lineWidth = 4;
-    ctx.strokeStyle = '#3b82f6'; // brand-500
+    ctx.strokeStyle = '#3b82f6';
     ctx.strokeRect(x, y, width, height);
   }
 };

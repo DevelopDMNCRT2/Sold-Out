@@ -10,3 +10,6 @@
 import ThemeProvider from './components/layout/ThemeProvider.vue'
 import SidebarProvider from './components/layout/SidebarProvider.vue'
 </script>
+
+<style scoped>
+</style>

@@ -10,7 +10,30 @@ router.get('/', async (req, res) => {
       orderBy: { createdAt: 'desc' },
       include: { ticketTiers: true }
     });
-    res.json(events);
+
+    const eventsWithExactSold = await Promise.all(events.map(async (event) => {
+      const ticketTiers = await Promise.all((event.ticketTiers || []).map(async (tier) => {
+        const count = await prisma.ticket.count({
+          where: {
+            ticketTierId: tier.id,
+            order: {
+              status: { in: ['Pagado', 'Completado', 'Aprobado'] }
+            }
+          }
+        });
+        return {
+          ...tier,
+          sold: count
+        };
+      }));
+
+      return {
+        ...event,
+        ticketTiers
+      };
+    }));
+
+    res.json(eventsWithExactSold);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -29,9 +52,12 @@ router.post('/', async (req, res) => {
       if (count === 0) exists = false;
     }
 
+    const scannerPin = eventData.scannerPin || Math.floor(100000 + Math.random() * 900000).toString();
+
     const event = await prisma.event.create({
       data: {
         id,
+        scannerPin,
         ...eventData,
         ticketTiers: {
           create: tickets || []
@@ -135,7 +161,7 @@ router.get('/dashboard/stats', async (req, res) => {
 // Obtener un evento por ID
 router.get('/:id', async (req, res) => {
   try {
-    const event = await prisma.event.findUnique({
+    let event = await prisma.event.findUnique({
       where: { id: req.params.id },
       include: { 
         ticketTiers: true, 
@@ -153,6 +179,26 @@ router.get('/:id', async (req, res) => {
     });
     
     if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
+
+    // Si no tiene PIN generado, crearlo sobre la marcha
+    if (!event.scannerPin) {
+      const newPin = Math.floor(100000 + Math.random() * 900000).toString();
+      event = await prisma.event.update({
+        where: { id: event.id },
+        data: { scannerPin: newPin },
+        include: {
+          ticketTiers: true,
+          orders: {
+            include: {
+              tickets: {
+                include: { ticketTier: true }
+              }
+            },
+            orderBy: { purchaseDate: 'desc' }
+          }
+        }
+      });
+    }
     
     // Mapear órdenes al formato plano esperado por el frontend administrador
     const mappedOrders = (event.orders || []).map(order => {
@@ -176,8 +222,25 @@ router.get('/:id', async (req, res) => {
       };
     });
 
+    // Recalcular el conteo exacto de boletos vendidos por cada localidad
+    const ticketTiersWithExactSold = await Promise.all((event.ticketTiers || []).map(async tier => {
+      const count = await prisma.ticket.count({
+        where: {
+          ticketTierId: tier.id,
+          order: {
+            status: { in: ['Pagado', 'Completado', 'Aprobado'] }
+          }
+        }
+      });
+      return {
+        ...tier,
+        sold: count
+      };
+    }));
+
     res.json({
       ...event,
+      ticketTiers: ticketTiersWithExactSold,
       orders: mappedOrders
     });
   } catch (error) {

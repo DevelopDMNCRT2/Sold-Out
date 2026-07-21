@@ -47,6 +47,14 @@ const router = createRouter({
       },
     },
     {
+      path: '/validador',
+      name: 'ValidadorDispositivo',
+      component: () => import('../views/ScannerDeviceView.vue'),
+      meta: {
+        title: 'Escáner de Boletos',
+      },
+    },
+    {
       path: '/eventos/:id',
       name: 'AdministrarEvento',
       component: () => import('../views/ManageEvent.vue'),

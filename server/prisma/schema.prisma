@@ -31,6 +31,10 @@ model Event {
   limitPerPerson      Boolean @default(false)
   maxTicketsPerPerson Int     @default(6)
 
+  // Scanner Settings
+  scannerPin String?
+  maxDevices Int     @default(2)
+
   // Images (Cloudinary URLs)
   coverImage  String?
   bannerImage String?
@@ -39,8 +43,9 @@ model Event {
   updatedAt DateTime @updatedAt
 
   // Relations
-  ticketTiers TicketTier[]
-  orders      Order[]
+  ticketTiers    TicketTier[]
+  orders         Order[]
+  scannerDevices ScannerDevice[]
 }
 
 model TicketTier {
@@ -74,16 +79,30 @@ model Order {
 }
 
 model Ticket {
-  id           String  @id @default(uuid())
-  orderId      String
-  ticketTierId String
+  id                String    @id @default(uuid())
+  orderId           String
+  ticketTierId      String
   
-  qrCode       String  @unique @default(uuid())
-  status       String  @default("Válido") // Válido, Escaneado
-  scannedAt    DateTime?
+  qrCode            String    @unique @default(uuid())
+  status            String    @default("Válido") // Válido, Escaneado
+  scannedAt         DateTime?
+  scannedByDeviceId String?
 
   order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
   ticketTier TicketTier @relation(fields: [ticketTierId], references: [id], onDelete: Cascade)
+}
+
+model ScannerDevice {
+  id           String   @id @default(uuid())
+  eventId      String
+  deviceId     String   // UUID único generado en el cliente
+  deviceName   String?  // Ej: iPhone 15 - Safari
+  pairedAt     DateTime @default(now())
+  lastActiveAt DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, deviceId])
 }
 
 model User {
